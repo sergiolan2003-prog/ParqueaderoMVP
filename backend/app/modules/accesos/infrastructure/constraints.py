@@ -1,0 +1,7 @@
+SEDE_NOMBRE_UNIQUE = "uq_sede_nombre"
+SEDE_CUPOS_CARRO_NONNEGATIVE = "cupos_carro_nonnegative"
+SEDE_CUPOS_MOTO_NONNEGATIVE = "cupos_moto_nonnegative"
+CARRIL_SENTIDO_VALID = "sentido_valid"
+VEHICULO_PLACA_UPPERCASE = "placa_uppercase"
+VEHICULO_TIPO_VALID = "tipo_valid"
+EVENTO_CONFIANZA_RANGE = "confianza_lpr_range"
