@@ -1,0 +1,5 @@
+TARIFA_TIPO_VEHICULO_VALID = "tipo_vehiculo_valid"
+TARIFA_FRANJA_VALID = "franja_valid"
+TARIFA_VALOR_NONNEGATIVE = "valor_nonnegative"
+TARIFA_VIGENCIA_ORDER = "vigencia_order"
+TARIFA_SCOPE_START_UNIQUE = "uq_tarifa_sede_tipo_franja_desde"
