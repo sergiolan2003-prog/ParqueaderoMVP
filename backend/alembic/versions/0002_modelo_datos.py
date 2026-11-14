@@ -8,9 +8,9 @@ Create Date: 2026-11-14
 from typing import Sequence, Union
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 from app.modules.accesos.infrastructure import constraints as accesos_constraints
 from app.modules.cobros.infrastructure import constraints as cobros_constraints
 from app.modules.pagos.infrastructure import constraints as pagos_constraints

@@ -12,7 +12,9 @@ class SqlAlchemyCobroRepository:
         self._session = session
 
     def add(self, cobro: Cobro) -> None:
-        """Flush without commit; the caller must rollback or use a savepoint on error."""
+        """Flush without commit; the caller must rollback or use a
+        savepoint on error.
+        """
         self._session.add(
             CobroModel(
                 id=cobro.id,

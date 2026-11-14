@@ -12,7 +12,9 @@ class SqlAlchemyPagoRepository:
         self._session = session
 
     def add(self, pago: Pago) -> None:
-        """Flush without commit; the caller must rollback or use a savepoint on error."""
+        """Flush without commit; the caller must rollback or use a
+        savepoint on error.
+        """
         self._session.add(
             PagoModel(
                 id=pago.id,

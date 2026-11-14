@@ -95,7 +95,9 @@ def test_migrations_work_from_empty_database(
 
         migration_runner(database_url, "base")
         with engine.connect() as connection:
-            assert not EXPECTED_TABLES.intersection(inspect(connection).get_table_names())
+            assert not EXPECTED_TABLES.intersection(
+                inspect(connection).get_table_names()
+            )
 
         migration_runner(database_url, "head")
         with engine.connect() as connection:
@@ -104,7 +106,9 @@ def test_migrations_work_from_empty_database(
         engine.dispose()
 
 
-def test_valid_sede_vehicle_tarifa_cobro_and_pago_are_inserted(db_session: Session) -> None:
+def test_valid_sede_vehicle_tarifa_cobro_and_pago_are_inserted(
+    db_session: Session,
+) -> None:
     _, _, tarifa, cobro = _seed(db_session)
     pago = Pago(
         cobro_id=cobro.id,

@@ -4,11 +4,12 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import Session
+
+from alembic import command
 
 os.environ.setdefault("APP_NAME", "Parqueadero API")
 os.environ.setdefault("APP_ENV", "test")
@@ -21,7 +22,10 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
 def _create_database(admin_url: URL, database_name: str) -> None:
-    engine = create_engine(admin_url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    engine = create_engine(
+        admin_url.set(database="postgres"),
+        isolation_level="AUTOCOMMIT",
+    )
     quoted_name = engine.dialect.identifier_preparer.quote(database_name)
     try:
         with engine.connect() as connection:
@@ -36,7 +40,10 @@ def _create_database(admin_url: URL, database_name: str) -> None:
 
 
 def _drop_database(admin_url: URL, database_name: str) -> None:
-    engine = create_engine(admin_url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    engine = create_engine(
+        admin_url.set(database="postgres"),
+        isolation_level="AUTOCOMMIT",
+    )
     quoted_name = engine.dialect.identifier_preparer.quote(database_name)
     try:
         with engine.connect() as connection:
@@ -73,7 +80,10 @@ def migration_runner():
 def database_url() -> Iterator[URL]:
     development_url = make_url(os.environ["DATABASE_URL"])
     if development_url.get_backend_name() != "postgresql":
-        pytest.fail("Las pruebas de integración requieren PostgreSQL; SQLite no está permitido.")
+        pytest.fail(
+            "Las pruebas de integración requieren PostgreSQL; "
+            "SQLite no está permitido."
+        )
     if development_url.database is None:
         pytest.fail("DATABASE_URL debe incluir el nombre de la base de desarrollo.")
 
