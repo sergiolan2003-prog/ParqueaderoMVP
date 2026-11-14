@@ -64,6 +64,11 @@ def _run_migration(database_url: URL, revision: str) -> None:
         engine.dispose()
 
 
+@pytest.fixture
+def migration_runner():
+    return _run_migration
+
+
 @pytest.fixture(scope="session")
 def database_url() -> Iterator[URL]:
     development_url = make_url(os.environ["DATABASE_URL"])
