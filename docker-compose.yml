@@ -27,6 +27,13 @@ services:
       APP_NAME: ${APP_NAME:?Define APP_NAME en .env}
       APP_ENV: ${APP_ENV:?Define APP_ENV en .env}
       DATABASE_URL: ${DATABASE_URL:?Define DATABASE_URL en .env}
+      OPERATING_DAY_START: ${OPERATING_DAY_START:?Define OPERATING_DAY_START en .env}
+      DAYTIME_START: ${DAYTIME_START:?Define DAYTIME_START en .env}
+      DAYTIME_END: ${DAYTIME_END:?Define DAYTIME_END en .env}
+      NIGHTTIME_START: ${NIGHTTIME_START:?Define NIGHTTIME_START en .env}
+      NIGHTTIME_END: ${NIGHTTIME_END:?Define NIGHTTIME_END en .env}
+      OPERATING_TIMEZONE: ${OPERATING_TIMEZONE:?Define OPERATING_TIMEZONE en .env}
+      LPR_CONFIDENCE_THRESHOLD: ${LPR_CONFIDENCE_THRESHOLD:?Define LPR_CONFIDENCE_THRESHOLD en .env}
     depends_on:
       db:
         condition: service_healthy
