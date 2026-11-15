@@ -150,6 +150,11 @@ documenta todas las variables requeridas:
 | `APP_NAME` | Nombre mostrado por la API y Swagger |
 | `APP_ENV` | Entorno de ejecución |
 | `DATABASE_URL` | URL de SQLAlchemy para la API |
+| `OPERATING_DAY_START` | Hora local de inicio del día operativo |
+| `DAYTIME_START` / `DAYTIME_END` | Inicio y fin exclusivo de la franja diurna |
+| `NIGHTTIME_START` / `NIGHTTIME_END` | Inicio y fin exclusivo de la franja nocturna |
+| `OPERATING_TIMEZONE` | Zona horaria usada para calcular día y franja |
+| `LPR_CONFIDENCE_THRESHOLD` | Umbral de confianza LPR entre 0 y 1 (uso en HU-12) |
 | `POSTGRES_DB` | Base inicializada por PostgreSQL |
 | `POSTGRES_USER` | Usuario inicializado por PostgreSQL |
 | `POSTGRES_PASSWORD` | Contraseña local de ejemplo para PostgreSQL |

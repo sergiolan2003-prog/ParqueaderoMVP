@@ -17,6 +17,13 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+psycopg://parqueadero:parqueadero_dev@localhost:5432/parqueadero",
 )
+os.environ.setdefault("OPERATING_DAY_START", "06:00")
+os.environ.setdefault("DAYTIME_START", "06:00")
+os.environ.setdefault("DAYTIME_END", "18:00")
+os.environ.setdefault("NIGHTTIME_START", "18:00")
+os.environ.setdefault("NIGHTTIME_END", "06:00")
+os.environ.setdefault("OPERATING_TIMEZONE", "America/Bogota")
+os.environ.setdefault("LPR_CONFIDENCE_THRESHOLD", "0.8")
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
