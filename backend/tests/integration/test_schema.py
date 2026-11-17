@@ -12,6 +12,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.accesos.infrastructure.models import Sede, Vehiculo
+from app.modules.auth.domain.entities import Rol
+from app.modules.auth.domain.entities import Usuario as UsuarioEntity
+from app.modules.auth.domain.exceptions import UsuarioDuplicadoError
+from app.modules.auth.infrastructure.models import Usuario
+from app.modules.auth.infrastructure.passwords import Argon2PasswordHasher
+from app.modules.auth.infrastructure.repositories import SqlAlchemyUsuarioRepository
+from app.modules.auth.infrastructure.seed import seed_users
 from app.modules.cobros.domain.entities import Cobro as CobroEntity
 from app.modules.cobros.domain.exceptions import CobroDuplicadoError
 from app.modules.cobros.infrastructure.models import Cobro
@@ -31,6 +38,7 @@ EXPECTED_TABLES = {
     "tarifa",
     "cobro",
     "pago",
+    "usuario",
 }
 
 
@@ -266,8 +274,7 @@ def test_required_tarifa_and_named_checks_and_uniqueness_are_enforced(
             db_session.add(duplicate_tarifa)
             db_session.flush()
     assert (
-        _check_constraint_name(tarifa_error.value)
-        == "uq_tarifa_sede_tipo_franja_desde"
+        _check_constraint_name(tarifa_error.value) == "uq_tarifa_sede_tipo_franja_desde"
     )
 
     invalid_state = Cobro(
@@ -305,3 +312,55 @@ def test_alembic_offline_sql_contains_cobro_and_unique_constraint() -> None:
 
     assert "CREATE TABLE cobro" in result.stdout
     assert "uq_cobro_placa_sede_dia" in result.stdout
+    assert "CREATE TABLE usuario" in result.stdout
+    assert "uq_usuario_username" in result.stdout
+
+
+def test_duplicate_usuario_is_rejected_by_database_and_repository(
+    db_session: Session,
+) -> None:
+    hasher = Argon2PasswordHasher()
+    usuario = Usuario(
+        username="usuario_unico",
+        password_hash=hasher.hash("secreto"),
+        rol="OPERADOR",
+        activo=True,
+    )
+    db_session.add(usuario)
+    db_session.flush()
+
+    duplicate = Usuario(
+        username="usuario_unico",
+        password_hash=hasher.hash("otro"),
+        rol="ADMINISTRADOR",
+        activo=True,
+    )
+    with pytest.raises(IntegrityError) as database_error:
+        with db_session.begin_nested():
+            db_session.add(duplicate)
+            db_session.flush()
+    assert _check_constraint_name(database_error.value) == "uq_usuario_username"
+
+    duplicate_entity = UsuarioEntity(
+        id=uuid4(),
+        username="usuario_unico",
+        password_hash=hasher.hash("otro"),
+        rol=Rol.OPERADOR,
+        activo=True,
+    )
+    with pytest.raises(UsuarioDuplicadoError) as repository_error:
+        with db_session.begin_nested():
+            SqlAlchemyUsuarioRepository(db_session).add(duplicate_entity)
+    assert isinstance(repository_error.value.__cause__, IntegrityError)
+
+
+def test_seed_users_is_idempotent(db_session: Session) -> None:
+    seed_users(db_session)
+    seed_users(db_session)
+
+    usernames = (
+        db_session.query(Usuario)
+        .filter(Usuario.username.in_(("admin_prueba", "operador_prueba")))
+        .all()
+    )
+    assert len(usernames) == 2
