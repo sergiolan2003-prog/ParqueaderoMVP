@@ -73,9 +73,7 @@ class OperatingDayConfiguration:
         covered_until = 0
         for start, end in sorted(segments):
             if start < covered_until:
-                raise OperatingDayConfigurationError(
-                    "Las franjas horarias se solapan."
-                )
+                raise OperatingDayConfigurationError("Las franjas horarias se solapan.")
             if start > covered_until:
                 raise OperatingDayConfigurationError(
                     "Las franjas horarias dejan huecos."
@@ -97,15 +95,12 @@ class OperatingDayConfiguration:
     @staticmethod
     def _microseconds_since_midnight(value: time) -> int:
         return (
-            ((value.hour * 60 + value.minute) * 60 + value.second) * 1_000_000
-            + value.microsecond
-        )
+            (value.hour * 60 + value.minute) * 60 + value.second
+        ) * 1_000_000 + value.microsecond
 
 
 class OperatingDayService:
-    def __init__(
-        self, clock: Clock, configuration: OperatingDayConfiguration
-    ) -> None:
+    def __init__(self, clock: Clock, configuration: OperatingDayConfiguration) -> None:
         self._clock = clock
         self._configuration = configuration
 

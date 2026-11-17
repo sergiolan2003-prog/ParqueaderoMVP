@@ -2,7 +2,9 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
-from pydantic import BaseModel, Field, field_validator
+
+from pydantic import BaseModel, Field
+
 
 class TarifaBase(BaseModel):
     sede_id: UUID
@@ -12,8 +14,10 @@ class TarifaBase(BaseModel):
     vigente_desde: date
     vigente_hasta: Optional[date] = None
 
+
 class TarifaCreate(TarifaBase):
     pass
+
 
 class TarifaResponse(TarifaBase):
     id: UUID
