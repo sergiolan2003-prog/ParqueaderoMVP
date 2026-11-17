@@ -1,24 +1,34 @@
+from dataclasses import replace
 from datetime import datetime
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.modules.accesos.infrastructure.models import Carril, EventoAcceso, Vehiculo
+from app.core.clock import Clock, SystemClock
+from app.core.config import build_operating_day_configuration
+from app.core.operating_day import OperatingDayService
+from app.modules.accesos.infrastructure.models import (
+    Carril,
+    EventoAcceso,
+    Sede,
+    Vehiculo,
+)
 from app.modules.cobros.infrastructure.models import Cobro
 
 
 class ValidarSalidaVehiculoUseCase:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, clock: Clock | None = None):
         self.db = db
+        self._clock = clock or SystemClock()
 
     def ejecutar(
         self,
         placa: str,
         carril_id: UUID,
         foto_url: str | None = None,
-    ) -> dict:
-        placa = placa.upper()
+    ) -> dict[str, UUID | bool | str | datetime]:
+        placa = placa.strip().upper()
 
         carril = self.db.query(Carril).filter(Carril.id == carril_id).first()
         if not carril:
@@ -32,14 +42,41 @@ class ValidarSalidaVehiculoUseCase:
                 detail="El carril seleccionado no corresponde a un punto de salida.",
             )
 
+        sede = self.db.query(Sede).filter(Sede.id == carril.sede_id).first()
+        if sede is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="La sede asociada al carril no existe.",
+            )
+
         vehiculo = self.db.query(Vehiculo).filter(Vehiculo.placa == placa).first()
-        es_moto = vehiculo and vehiculo.tipo == "MOTO"
+        if vehiculo is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="El vehículo no está registrado.",
+            )
+
+        instante = self._clock.now()
+        configuracion = replace(
+            build_operating_day_configuration(),
+            operating_day_start=sede.inicio_dia_operativo,
+            timezone=sede.zona_horaria,
+        )
+        dia_operativo = OperatingDayService(
+            clock=self._clock,
+            configuration=configuracion,
+        ).dia_operativo(instante)
 
         cobro_pendiente = None
-        if not es_moto:
+        if vehiculo.tipo != "MOTO":
             cobro_pendiente = (
                 self.db.query(Cobro)
-                .filter(Cobro.placa == placa, Cobro.estado == "PENDIENTE")
+                .filter(
+                    Cobro.placa == placa,
+                    Cobro.sede_id == sede.id,
+                    Cobro.dia_operativo == dia_operativo,
+                    Cobro.estado == "PENDIENTE",
+                )
                 .first()
             )
 
@@ -56,7 +93,7 @@ class ValidarSalidaVehiculoUseCase:
             id=uuid4(),
             placa=placa,
             carril_id=carril_id,
-            ocurrido_en=datetime.utcnow(),
+            ocurrido_en=instante,
             confianza_lpr=1.0,
             lectura_manual=False,
             foto_url=foto_url,

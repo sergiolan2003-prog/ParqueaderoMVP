@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from fastapi import HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.modules.tarifas.application.schemas import TarifaCreate
@@ -16,7 +19,11 @@ def crear_o_actualizar_tarifa(
             Tarifa.sede_id == tarifa_data.sede_id,
             Tarifa.tipo_vehiculo == tarifa_data.tipo_vehiculo.upper(),
             Tarifa.franja == franja_opuesta,
-            Tarifa.vigente_hasta.is_(None),
+            Tarifa.vigente_desde <= tarifa_data.vigente_desde,
+            or_(
+                Tarifa.vigente_hasta.is_(None),
+                Tarifa.vigente_hasta >= tarifa_data.vigente_desde,
+            ),
         )
         .first()
     )
@@ -52,7 +59,15 @@ def crear_o_actualizar_tarifa(
     )
 
     if tarifa_actual:
-        tarifa_actual.vigente_hasta = tarifa_data.vigente_desde
+        if tarifa_data.vigente_desde <= tarifa_actual.vigente_desde:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "La nueva tarifa debe iniciar después de la vigencia "
+                    "de la tarifa actual."
+                ),
+            )
+        tarifa_actual.vigente_hasta = tarifa_data.vigente_desde - timedelta(days=1)
 
     nueva_tarifa = Tarifa(
         sede_id=tarifa_data.sede_id,

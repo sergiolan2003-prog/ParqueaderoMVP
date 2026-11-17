@@ -187,6 +187,11 @@ Usuarios de prueba documentados desde las variables de entorno:
 El seed es idempotente y se ejecuta después de las migraciones al iniciar el
 contenedor `api`.
 
+Las rutas de salida (`POST /accesos/salida`) requieren el rol `OPERADOR` y las
+de administración (`POST /tarifas/`) requieren `ADMINISTRADOR`. La salida
+rechaza vehículos no registrados y consulta la deuda pendiente del día
+operativo y sede asociados al carril.
+
 ## Flujo Git y commits
 
 - `main` contiene versiones liberadas; `develop` integra cambios.
