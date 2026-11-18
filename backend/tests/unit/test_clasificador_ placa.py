@@ -1,6 +1,6 @@
 # backend/tests/unit/test_clasificador_placa.py
 import pytest
-from app.modules.vehiculos.domain.placa import ClasificadorPlaca, PlacaInvalidaError
+from app.modules.accesos.domain.placa import ClasificadorPlaca, PlacaInvalidaError
 
 def test_clasificar_carro():
     assert ClasificadorPlaca.clasificar("ABC123") == "CARRO"
