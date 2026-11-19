@@ -25,6 +25,23 @@ class Settings(BaseSettings):
         ge=0,
         le=1,
     )
+    jwt_secret: str = Field(
+        validation_alias="JWT_SECRET",
+        min_length=32,
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        validation_alias="JWT_ALGORITHM",
+    )
+    jwt_expire_minutes: int = Field(
+        default=60,
+        validation_alias="JWT_EXPIRE_MINUTES",
+        gt=0,
+    )
+    seed_admin_username: str = Field(validation_alias="SEED_ADMIN_USERNAME")
+    seed_admin_password: str = Field(validation_alias="SEED_ADMIN_PASSWORD")
+    seed_operador_username: str = Field(validation_alias="SEED_OPERADOR_USERNAME")
+    seed_operador_password: str = Field(validation_alias="SEED_OPERADOR_PASSWORD")
 
     model_config = SettingsConfigDict(
         env_file=".env",

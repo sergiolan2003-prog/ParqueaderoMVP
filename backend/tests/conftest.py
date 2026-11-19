@@ -24,6 +24,13 @@ os.environ.setdefault("NIGHTTIME_START", "18:00")
 os.environ.setdefault("NIGHTTIME_END", "06:00")
 os.environ.setdefault("OPERATING_TIMEZONE", "America/Bogota")
 os.environ.setdefault("LPR_CONFIDENCE_THRESHOLD", "0.8")
+os.environ.setdefault("JWT_SECRET", "test-only-secret-with-at-least-32-characters")
+os.environ.setdefault("JWT_ALGORITHM", "HS256")
+os.environ.setdefault("JWT_EXPIRE_MINUTES", "60")
+os.environ.setdefault("SEED_ADMIN_USERNAME", "admin_prueba")
+os.environ.setdefault("SEED_ADMIN_PASSWORD", "AdminPrueba123!")
+os.environ.setdefault("SEED_OPERADOR_USERNAME", "operador_prueba")
+os.environ.setdefault("SEED_OPERADOR_PASSWORD", "OperadorPrueba123!")
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -88,8 +95,7 @@ def database_url() -> Iterator[URL]:
     development_url = make_url(os.environ["DATABASE_URL"])
     if development_url.get_backend_name() != "postgresql":
         pytest.fail(
-            "Las pruebas de integración requieren PostgreSQL; "
-            "SQLite no está permitido."
+            "Las pruebas de integración requieren PostgreSQL; SQLite no está permitido."
         )
     if development_url.database is None:
         pytest.fail("DATABASE_URL debe incluir el nombre de la base de desarrollo.")

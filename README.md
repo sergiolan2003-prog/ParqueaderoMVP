@@ -158,11 +158,39 @@ documenta todas las variables requeridas:
 | `POSTGRES_DB` | Base inicializada por PostgreSQL |
 | `POSTGRES_USER` | Usuario inicializado por PostgreSQL |
 | `POSTGRES_PASSWORD` | Contraseña local de ejemplo para PostgreSQL |
+| `JWT_SECRET` | Clave obligatoria para firmar tokens; mínimo 32 caracteres |
+| `JWT_ALGORITHM` | Algoritmo JWT, por defecto `HS256` |
+| `JWT_EXPIRE_MINUTES` | Duración del token en minutos, por defecto `60` |
+| `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD` | Credenciales iniciales del administrador |
+| `SEED_OPERADOR_USERNAME` / `SEED_OPERADOR_PASSWORD` | Credenciales iniciales del operador |
 
 Compose valida las variables obligatorias y nombra la variable faltante. La
 configuración de la API también valida sus valores requeridos al iniciar.
 `POSTGRES_PASSWORD` en `.env.example` es solo para desarrollo local; usa
 valores seguros y fuera del repositorio para otros entornos. No subas `.env`.
+
+## Autenticación y usuarios de prueba
+
+HU-09 agrega la tabla `usuario` al modelo de datos. Esta decisión incorpora
+identidades, roles y contraseñas autenticadas sin mezclar autenticación con
+los módulos de cobros, accesos o tarifas. Las contraseñas se almacenan únicamente
+como hashes Argon2. El inicio de sesión usa Swagger OAuth2 con el botón
+`Authorize` y las rutas protegidas aceptan el token Bearer.
+
+Usuarios de prueba documentados desde las variables de entorno:
+
+| Rol | Usuario | Contraseña |
+| --- | --- | --- |
+| Administrador | `admin_prueba` | `AdminPrueba123!` |
+| Operador | `operador_prueba` | `OperadorPrueba123!` |
+
+El seed es idempotente y se ejecuta después de las migraciones al iniciar el
+contenedor `api`.
+
+Las rutas de salida (`POST /accesos/salida`) requieren el rol `OPERADOR` y las
+de administración (`POST /tarifas/`) requieren `ADMINISTRADOR`. La salida
+rechaza vehículos no registrados y consulta la deuda pendiente del día
+operativo y sede asociados al carril.
 
 ## Flujo Git y commits
 
