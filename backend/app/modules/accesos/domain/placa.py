@@ -1,6 +1,7 @@
 # backend/app/modules/vehiculos/domain/placa.py
 import re
 
+
 class PlacaInvalidaError(ValueError):
     """Excepción de dominio para formatos de placa no reconocidos."""
     pass
