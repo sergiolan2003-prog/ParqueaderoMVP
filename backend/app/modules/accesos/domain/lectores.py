@@ -28,7 +28,7 @@ class LectorSimulado:
         self._confianza = confianza
 
     def leer(self) -> LecturaPlaca:
-        placa = self._placa or self._generar_placa()
+        placa = self._placa if self._placa is not None else self._generar_placa()
         confianza = (
             self._confianza
             if self._confianza is not None
