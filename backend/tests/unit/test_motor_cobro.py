@@ -1,60 +1,97 @@
-# backend/tests/unit/test_motor_cobro.py
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from uuid import UUID, uuid4
+
 import pytest
-from datetime import datetime
+
 from app.modules.cobros.domain.motor_cobro import (
-    EstrategiaCobroMoto,
-    EstrategiaCobroCarro,
-    MotorCobro
+    EstrategiaCobroConfigurada,
+    MotorCobro,
+    TarifaAplicable,
+    TarifaNoConfiguradaError,
 )
 
-# Mocks para inyectar
-class MockReloj:
-    def __init__(self, franja_simulada: str):
-        self.franja_simulada = franja_simulada
-    def determinar_franja(self, fecha_hora: datetime) -> str:
-        return self.franja_simulada
 
-class MockTarifaRepo:
-    def obtener_tarifa_activa(self, tipo_vehiculo: str, franja: str) -> float:
-        if tipo_vehiculo == "CARRO" and franja == "DIURNA":
-            return 5000.0
-        elif tipo_vehiculo == "CARRO" and franja == "NOCTURNA":
-            return 8000.0
-        return None
+class MockOperatingDay:
+    def __init__(self, franja: str, dia: date = date(2026, 11, 18)) -> None:
+        self._franja = franja
+        self._dia = dia
 
-def test_moto_siempre_es_cero():
-    estrategia = EstrategiaCobroMoto()
-    motor = MotorCobro(estrategia)
-    fecha_ingreso = datetime(2026, 11, 18, 8, 0)
-    
-    assert motor.liquidar(fecha_ingreso) == 0.0
+    def dia_operativo(self, instante: datetime | None = None) -> date:
+        return self._dia
 
-def test_carro_tarifa_diurna():
-    repo = MockTarifaRepo()
-    reloj = MockReloj("DIURNA")
-    estrategia = EstrategiaCobroCarro(repo, reloj)
-    motor = MotorCobro(estrategia)
-    
-    # 08:00 AM
-    fecha_ingreso = datetime(2026, 11, 18, 8, 0)
-    assert motor.liquidar(fecha_ingreso) == 5000.0
+    def franja(self, instante: datetime | None = None) -> str:
+        return self._franja
 
-def test_carro_tarifa_nocturna():
-    repo = MockTarifaRepo()
-    reloj = MockReloj("NOCTURNA")
-    estrategia = EstrategiaCobroCarro(repo, reloj)
-    motor = MotorCobro(estrategia)
-    
-    # 19:00 PM
-    fecha_ingreso = datetime(2026, 11, 18, 19, 0)
-    assert motor.liquidar(fecha_ingreso) == 8000.0
 
-def test_carro_sin_tarifa_lanza_error():
-    repo = MockTarifaRepo()
-    reloj = MockReloj("FESTIVA") # Franja no configurada en el mock
-    estrategia = EstrategiaCobroCarro(repo, reloj)
-    motor = MotorCobro(estrategia)
-    
-    with pytest.raises(ValueError) as exc:
-        motor.liquidar(datetime.now())
-    assert "No hay tarifa configurada" in str(exc.value)
+class MockTarifaRepository:
+    def __init__(self, tarifas: dict[tuple[str, str], Decimal]) -> None:
+        self._tarifas = tarifas
+        self.ultima_consulta: tuple[UUID, str, str, date] | None = None
+
+    def obtener_tarifa_activa(
+        self,
+        sede_id: UUID,
+        tipo_vehiculo: str,
+        franja: str,
+        dia_operativo: date,
+    ) -> TarifaAplicable | None:
+        self.ultima_consulta = (sede_id, tipo_vehiculo, franja, dia_operativo)
+        valor = self._tarifas.get((tipo_vehiculo, franja))
+        if valor is None:
+            return None
+        return TarifaAplicable(id=uuid4(), valor=valor)
+
+
+def _motor(
+    tarifas: dict[tuple[str, str], Decimal],
+    franja: str,
+) -> tuple[MotorCobro, MockTarifaRepository]:
+    repo = MockTarifaRepository(tarifas)
+    motor = MotorCobro(
+        EstrategiaCobroConfigurada(repo, MockOperatingDay(franja))
+    )
+    return motor, repo
+
+
+@pytest.mark.parametrize(
+    ("tipo", "franja", "importe"),
+    [
+        ("CARRO", "DIURNA", Decimal("5000.00")),
+        ("CARRO", "NOCTURNA", Decimal("8000.00")),
+        ("MOTO", "DIURNA", Decimal("0.00")),
+    ],
+)
+def test_motor_resuelve_el_valor_configurado_incluida_tarifa_cero(
+    tipo: str,
+    franja: str,
+    importe: Decimal,
+) -> None:
+    motor, repo = _motor({(tipo, franja): importe}, franja)
+    sede_id = uuid4()
+
+    liquidacion = motor.liquidar(
+        sede_id,
+        tipo,
+        datetime(2026, 11, 18, 8, 0, tzinfo=UTC),
+    )
+
+    assert liquidacion.tarifa.valor == importe
+    assert liquidacion.dia_operativo == date(2026, 11, 18)
+    assert repo.ultima_consulta == (
+        sede_id,
+        tipo,
+        franja,
+        date(2026, 11, 18),
+    )
+
+
+def test_motor_falla_claramente_si_no_hay_tarifa_activa() -> None:
+    motor, _ = _motor({}, "NOCTURNA")
+
+    with pytest.raises(TarifaNoConfiguradaError, match="CARRO.*NOCTURNA"):
+        motor.liquidar(
+            uuid4(),
+            "CARRO",
+            datetime(2026, 11, 18, 19, 0, tzinfo=UTC),
+        )

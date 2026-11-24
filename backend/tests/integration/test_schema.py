@@ -20,7 +20,6 @@ from app.modules.auth.infrastructure.passwords import Argon2PasswordHasher
 from app.modules.auth.infrastructure.repositories import SqlAlchemyUsuarioRepository
 from app.modules.auth.infrastructure.seed import seed_users
 from app.modules.cobros.domain.entities import Cobro as CobroEntity
-from app.modules.cobros.domain.exceptions import CobroDuplicadoError
 from app.modules.cobros.infrastructure.models import Cobro
 from app.modules.cobros.infrastructure.repositories import SqlAlchemyCobroRepository
 from app.modules.pagos.domain.entities import Pago as PagoEntity
@@ -39,6 +38,7 @@ EXPECTED_TABLES = {
     "cobro",
     "pago",
     "usuario",
+    "pase",
 }
 
 
@@ -132,7 +132,7 @@ def test_valid_sede_vehicle_tarifa_cobro_and_pago_are_inserted(
     assert pago.id is not None
 
 
-def test_duplicate_cobro_is_rejected_by_database_and_repository(
+def test_database_unique_constraint_and_repository_conflict_handling(
     db_session: Session,
 ) -> None:
     sede, vehiculo, tarifa, cobro = _seed(db_session)
@@ -160,10 +160,8 @@ def test_duplicate_cobro_is_rejected_by_database_and_repository(
         valor=tarifa.valor,
         estado="PENDIENTE",
     )
-    with pytest.raises(CobroDuplicadoError) as repository_error:
-        with db_session.begin_nested():
-            SqlAlchemyCobroRepository(db_session).add(duplicate_entity)
-    assert isinstance(repository_error.value.__cause__, IntegrityError)
+    with db_session.begin_nested():
+        assert SqlAlchemyCobroRepository(db_session).add(duplicate_entity) is False
 
 
 def test_same_plate_on_another_day_or_at_another_site_is_accepted(

@@ -105,5 +105,38 @@ CREATE TABLE pago (
 
 UPDATE alembic_version SET version_num='0002_modelo_datos' WHERE alembic_version.version_num = '0001_initial';
 
+-- Running upgrade 0002_modelo_datos -> 0003_usuario_auth
+
+CREATE TABLE usuario (
+    id UUID DEFAULT gen_random_uuid() NOT NULL,
+    username VARCHAR NOT NULL,
+    password_hash VARCHAR NOT NULL,
+    rol VARCHAR NOT NULL,
+    activo BOOLEAN DEFAULT true NOT NULL,
+    CONSTRAINT pk_usuario PRIMARY KEY (id),
+    CONSTRAINT uq_usuario_username UNIQUE (username),
+    CONSTRAINT ck_usuario_ck_usuario_rol_valid CHECK (rol IN ('OPERADOR', 'ADMINISTRADOR'))
+);
+
+UPDATE alembic_version SET version_num='0003_usuario_auth' WHERE alembic_version.version_num = '0002_modelo_datos';
+
+-- Running upgrade 0003_usuario_auth -> 0004_pases
+
+CREATE TABLE pase (
+    id UUID DEFAULT gen_random_uuid() NOT NULL,
+    placa VARCHAR NOT NULL,
+    sede_id UUID NOT NULL,
+    vigente_desde TIMESTAMP WITH TIME ZONE NOT NULL,
+    vigente_hasta TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT pk_pase PRIMARY KEY (id),
+    CONSTRAINT ck_pase_vigencia_order CHECK (vigente_hasta >= vigente_desde),
+    CONSTRAINT fk_pase_placa_vehiculo FOREIGN KEY(placa) REFERENCES vehiculo (placa),
+    CONSTRAINT fk_pase_sede_id_sede FOREIGN KEY(sede_id) REFERENCES sede (id)
+);
+
+CREATE INDEX ix_pase_placa_sede_vigencia ON pase (placa, sede_id, vigente_desde, vigente_hasta);
+
+UPDATE alembic_version SET version_num='0004_pases' WHERE alembic_version.version_num = '0003_usuario_auth';
+
 COMMIT;
 

@@ -1,47 +1,97 @@
-# backend/app/modules/cobros/domain/motor_cobro.py
 from abc import ABC, abstractmethod
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Protocol
+from uuid import UUID
 
-# Interfaces (Puertos) para inyección de dependencias
+
+@dataclass(frozen=True)
+class TarifaAplicable:
+    id: UUID
+    valor: Decimal
+
+
+@dataclass(frozen=True)
+class Liquidacion:
+    tarifa: TarifaAplicable
+    dia_operativo: date
+    franja: str
+
+
+class TarifaNoConfiguradaError(ValueError):
+    def __init__(self, tipo_vehiculo: str, franja: str) -> None:
+        self.tipo_vehiculo = tipo_vehiculo
+        self.franja = franja
+        super().__init__(
+            f"No hay tarifa vigente configurada para {tipo_vehiculo} "
+            f"en la franja {franja}."
+        )
+
+
 class TarifaRepository(Protocol):
-    def obtener_tarifa_activa(self, tipo_vehiculo: str, franja: str) -> float:
-        ...
+    def obtener_tarifa_activa(
+        self,
+        sede_id: UUID,
+        tipo_vehiculo: str,
+        franja: str,
+        dia_operativo: date,
+    ) -> TarifaAplicable | None: ...
+
 
 class Reloj(Protocol):
-    def determinar_franja(self, fecha_hora: datetime) -> str:
-        ...
+    def dia_operativo(self, instante: datetime | None = None) -> date: ...
 
-# Patrón Strategy
+    def franja(self, instante: datetime | None = None) -> str: ...
+
+
 class EstrategiaCobro(ABC):
     @abstractmethod
-    def calcular_tarifa(self, primer_ingreso: datetime) -> float:
-        pass
+    def liquidar(
+        self,
+        sede_id: UUID,
+        tipo_vehiculo: str,
+        primer_ingreso: datetime,
+    ) -> Liquidacion:
+        ...
 
-class EstrategiaCobroMoto(EstrategiaCobro):
-    def calcular_tarifa(self, primer_ingreso: datetime) -> float:
-        # RN-01: La moto siempre cuesta 0 y no necesita consultar al repo
-        return 0.0
 
-class EstrategiaCobroCarro(EstrategiaCobro):
-    def __init__(self, tarifa_repo: TarifaRepository, reloj: Reloj):
-        self.tarifa_repo = tarifa_repo
-        self.reloj = reloj
+class EstrategiaCobroConfigurada(EstrategiaCobro):
+    def __init__(self, tarifa_repo: TarifaRepository, reloj: Reloj) -> None:
+        self._tarifa_repo = tarifa_repo
+        self._reloj = reloj
 
-    def calcular_tarifa(self, primer_ingreso: datetime) -> float:
-        # RN-05: La franja se determina por el primer ingreso del día
-        franja = self.reloj.determinar_franja(primer_ingreso)
-        tarifa = self.tarifa_repo.obtener_tarifa_activa("CARRO", franja)
-        
+    def liquidar(
+        self,
+        sede_id: UUID,
+        tipo_vehiculo: str,
+        primer_ingreso: datetime,
+    ) -> Liquidacion:
+        dia_operativo = self._reloj.dia_operativo(primer_ingreso)
+        franja = self._reloj.franja(primer_ingreso)
+        tarifa = self._tarifa_repo.obtener_tarifa_activa(
+            sede_id=sede_id,
+            tipo_vehiculo=tipo_vehiculo,
+            franja=franja,
+            dia_operativo=dia_operativo,
+        )
         if tarifa is None:
-            raise ValueError(f"No hay tarifa configurada para CARRO en la franja {franja}")
-        
-        return tarifa
+            raise TarifaNoConfiguradaError(tipo_vehiculo, franja)
+        return Liquidacion(
+            tarifa=tarifa,
+            dia_operativo=dia_operativo,
+            franja=franja,
+        )
 
-# Contexto del Motor
+
 class MotorCobro:
-    def __init__(self, estrategia: EstrategiaCobro):
-        self.estrategia = estrategia
+    def __init__(self, estrategia: EstrategiaCobro) -> None:
+        self._estrategia = estrategia
 
-    def liquidar(self, primer_ingreso: datetime) -> float:
-        return self.estrategia.calcular_tarifa(primer_ingreso)
+    def liquidar(
+        self,
+        sede_id: UUID,
+        tipo_vehiculo: str,
+        primer_ingreso: datetime,
+    ) -> Liquidacion:
+        return self._estrategia.liquidar(sede_id, tipo_vehiculo, primer_ingreso)

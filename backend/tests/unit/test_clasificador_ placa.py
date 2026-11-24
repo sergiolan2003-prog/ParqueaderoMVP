@@ -1,6 +1,8 @@
 # backend/tests/unit/test_clasificador_placa.py
 import pytest
+
 from app.modules.accesos.domain.placa import ClasificadorPlaca, PlacaInvalidaError
+
 
 def test_clasificar_carro():
     assert ClasificadorPlaca.clasificar("ABC123") == "CARRO"
@@ -21,4 +23,5 @@ def test_normalizar_y_clasificar_carro():
 def test_clasificar_placa_invalida_lanza_error(placa_invalida):
     with pytest.raises(PlacaInvalidaError) as exc_info:
         ClasificadorPlaca.clasificar(placa_invalida)
-    assert "invalido" in str(exc_info.value).lower() or "vacía" in str(exc_info.value).lower()
+    mensaje = str(exc_info.value).lower()
+    assert "inválido" in mensaje or "vacía" in mensaje
