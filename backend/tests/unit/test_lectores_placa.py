@@ -2,10 +2,10 @@ import re
 from random import Random
 
 from app.modules.accesos.domain.lectores import (
-    LecturaPlaca,
     LectorManual,
     LectorPlaca,
     LectorSimulado,
+    LecturaPlaca,
 )
 
 
