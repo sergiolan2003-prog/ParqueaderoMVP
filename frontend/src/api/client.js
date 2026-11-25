@@ -115,6 +115,10 @@ export class ApiClient {
     return this.request(path, { ...options, method: "POST", body });
   }
 
+  put(path, body, options = {}) {
+    return this.request(path, { ...options, method: "PUT", body });
+  }
+
   async request(path, { method = "GET", headers: inputHeaders, body } = {}) {
     const requestHeaders = new Headers(inputHeaders);
     const token = this.getToken();

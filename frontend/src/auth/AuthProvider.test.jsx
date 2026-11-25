@@ -36,7 +36,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("keeps the JWT in memory, loads the current role, and clears on logout", async () => {
+it("keeps the JWT in session storage, loads the role, and clears on logout", async () => {
   const fetchMock = vi
     .fn()
     .mockResolvedValueOnce({
@@ -69,11 +69,13 @@ it("keeps the JWT in memory, loads the current role, and clears on logout", asyn
   expect(fetchMock.mock.calls[1][1].headers.get("Authorization")).toBe(
     "Bearer test-jwt",
   );
+  expect(sessionStorage.getItem("access_token")).toBe("test-jwt");
   expect(localStorage.getItem("access_token")).toBeNull();
 
   fireEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }));
   await waitFor(() => {
     expect(screen.getByRole("status")).toHaveTextContent("sin sesión");
     expect(screen.getByText("Acceso denegado")).toBeInTheDocument();
+    expect(sessionStorage.getItem("access_token")).toBeNull();
   });
 });

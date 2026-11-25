@@ -150,11 +150,11 @@ npm run build
 ```
 
 La prueba de salud valida `GET /health` y la respuesta `{"status": "ok"}`.
-Las pruebas Vitest cubren el cliente HTTP, el contrato de autenticación y la
-visualización del estado de la API. El cliente conserva el JWT solo en memoria;
-al recargar la página se requiere iniciar sesión de nuevo. El cierre de sesión
-descarta el token del navegador; la API actual no ofrece revocación de JWT, por
-lo que un token copiado seguiría vigente hasta su expiración.
+Las pruebas Vitest cubren el cliente HTTP, el login, la autorización por rol,
+las vistas administrativas y la visualización del estado de la API. El frontend
+guarda el JWT en `sessionStorage` para conservar la sesión al recargar la pestaña;
+al cerrar sesión se elimina. La API actual no ofrece revocación de JWT, por lo
+que un token copiado seguiría vigente hasta su expiración.
 
 Para validar la comunicación real a través de los proxies, abre Docker Desktop
 y verifica que los puertos 5432, 8000 y 5173 estén libres. Este comando usa un
@@ -271,6 +271,12 @@ Las rutas administrativas requieren un JWT con rol `ADMINISTRADOR`:
 Las fechas de eventos se interpretan en la zona horaria configurada para la
 operación; las fechas de cobros corresponden a `dia_operativo`. Un rango donde
 `desde` sea posterior a `hasta` se rechaza con HTTP 422.
+
+La interfaz web en `http://localhost:5173` solicita login y muestra las pestañas
+Tarifas, Cupos y Consultas únicamente a `ADMINISTRADOR`. Un `OPERADOR` recibe
+un mensaje de acceso denegado. La pestaña Tarifas permite crear una tarifa o
+iniciar una nueva versión desde la tarifa vigente; Cupos permite actualizar
+los valores por sede; Consultas pagina eventos y cobros con sus filtros.
 
 ## Ingreso de vehículos (HU-06)
 
