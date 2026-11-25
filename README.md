@@ -128,7 +128,7 @@ docker compose run --rm api ruff check .
 ```
 
 La suite de integración usa PostgreSQL y mantiene como `xfail` estricto los
-flujos pendientes de HU-11, HU-12 y la generación automática de cobro de S-05.
+flujos pendientes de HU-12 y la generación automática de cobro de S-05.
 
 Backend local, desde `backend/`:
 
@@ -204,6 +204,12 @@ Las rutas de salida (`POST /accesos/salida`) requieren el rol `OPERADOR` y las
 de administración (`POST /tarifas/`) requieren `ADMINISTRADOR`. La salida
 rechaza vehículos no registrados y consulta la deuda pendiente del día
 operativo y sede asociados al carril.
+
+### HU-11: pago efectivo y pase vigente
+
+El operador registra pagos idempotentes en `POST /pagos/efectivo`. El contrato,
+las reglas del State del cobro y la vigencia del pase se documentan en
+[docs/pagos-hu-11.md](docs/pagos-hu-11.md).
 
 ## Flujo Git y commits
 
