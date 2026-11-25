@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+import sqlalchemy as sa
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from app.modules.pagos.domain.entities import Pago as PagoEntity
 from app.modules.pagos.domain.exceptions import PagoDuplicadoError
 from app.modules.pagos.infrastructure.models import Pago
 from app.modules.pagos.infrastructure.repositories import SqlAlchemyPagoRepository
+from app.modules.pases.infrastructure.models import Pase
 from app.modules.tarifas.infrastructure.models import Tarifa
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -110,6 +112,112 @@ def test_migrations_work_from_empty_database(
         migration_runner(database_url, "head")
         with engine.connect() as connection:
             assert EXPECTED_TABLES <= set(inspect(connection).get_table_names())
+    finally:
+        engine.dispose()
+
+
+def test_hu11_migration_preserves_legacy_payment_and_pass(
+    disposable_migration_database,
+    migration_runner,
+) -> None:
+    database_url = disposable_migration_database
+    migration_runner(database_url, "0004_pases")
+    engine = create_engine(database_url)
+    sede_id = uuid4()
+    cobro_id = uuid4()
+    tarifa_id = uuid4()
+    pago_id = uuid4()
+    pase_id = uuid4()
+    pagado_en = datetime(2026, 3, 10, 12, 0, tzinfo=timezone.utc)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    "INSERT INTO sede "
+                    "(id, nombre, zona_horaria, inicio_dia_operativo, "
+                    "cupos_carro, cupos_moto) "
+                    "VALUES (:id, :nombre, :zona, :inicio, :carros, :motos)"
+                ),
+                {
+                    "id": sede_id,
+                    "nombre": "HU11-legacy",
+                    "zona": "America/Bogota",
+                    "inicio": time(6),
+                    "carros": 10,
+                    "motos": 5,
+                },
+            )
+            connection.execute(
+                sa.text("INSERT INTO vehiculo (placa, tipo) VALUES (:placa, :tipo)"),
+                {"placa": "LEG123", "tipo": "CARRO"},
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO tarifa "
+                    "(id, sede_id, tipo_vehiculo, franja, valor, vigente_desde) "
+                    "VALUES (:id, :sede, 'CARRO', 'DIURNA', 12000, :desde)"
+                ),
+                {
+                    "id": tarifa_id,
+                    "sede": sede_id,
+                    "desde": date(2026, 1, 1),
+                },
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO cobro "
+                    "(id, placa, sede_id, dia_operativo, tarifa_id, valor, estado) "
+                    "VALUES (:id, 'LEG123', :sede, :dia, :tarifa, 12000, 'PAGADO')"
+                ),
+                {
+                    "id": cobro_id,
+                    "sede": sede_id,
+                    "dia": date(2026, 3, 10),
+                    "tarifa": tarifa_id,
+                },
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO pago "
+                    "(id, cobro_id, medio, valor, referencia_pasarela, pagado_en) "
+                    "VALUES (:id, :cobro, 'EFECTIVO', 12000, :referencia, :pagado_en)"
+                ),
+                {
+                    "id": pago_id,
+                    "cobro": cobro_id,
+                    "referencia": "legacy-ref",
+                    "pagado_en": pagado_en,
+                },
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO pase "
+                    "(id, placa, sede_id, vigente_desde, vigente_hasta) "
+                    "VALUES (:id, 'LEG123', :sede, :desde, :hasta)"
+                ),
+                {
+                    "id": pase_id,
+                    "sede": sede_id,
+                    "desde": pagado_en,
+                    "hasta": datetime(2026, 3, 11, 11, 0, tzinfo=timezone.utc),
+                },
+            )
+
+        migration_runner(database_url, "head")
+        with engine.connect() as connection:
+            payment = connection.execute(
+                sa.text("SELECT id, referencia_pasarela FROM pago")
+            ).one()
+            legacy_pass = connection.execute(
+                sa.text(
+                    "SELECT id, cobro_id, dia_operativo FROM pase"
+                )
+            ).one()
+        assert payment.id == pago_id
+        assert payment.referencia_pasarela == "legacy-ref"
+        assert legacy_pass.id == pase_id
+        assert legacy_pass.cobro_id is None
+        assert legacy_pass.dia_operativo is None
     finally:
         engine.dispose()
 
@@ -243,6 +351,62 @@ def test_duplicate_payment_reference_is_rejected_by_database_and_repository(
         .count()
         == 1
     )
+
+
+def test_payment_and_pass_are_unique_per_charge_in_postgresql(
+    db_session: Session,
+) -> None:
+    _, _, _, cobro = _seed(db_session)
+    pagado_en = datetime(2026, 3, 10, 12, 0, tzinfo=timezone.utc)
+    db_session.add(
+        Pago(
+            cobro_id=cobro.id,
+            medio="EFECTIVO",
+            valor=cobro.valor,
+            referencia_pasarela="pago-cobro-unico",
+            pagado_en=pagado_en,
+        )
+    )
+    db_session.add(
+        Pase(
+            cobro_id=cobro.id,
+            dia_operativo=cobro.dia_operativo,
+            placa=cobro.placa,
+            sede_id=cobro.sede_id,
+            vigente_desde=pagado_en,
+            vigente_hasta=datetime(2026, 3, 11, 6, 0, tzinfo=timezone.utc),
+        )
+    )
+    db_session.flush()
+
+    with pytest.raises(IntegrityError) as payment_error:
+        with db_session.begin_nested():
+            db_session.add(
+                Pago(
+                    cobro_id=cobro.id,
+                    medio="EFECTIVO",
+                    valor=cobro.valor,
+                    referencia_pasarela="pago-cobro-segundo",
+                    pagado_en=pagado_en,
+                )
+            )
+            db_session.flush()
+    assert _check_constraint_name(payment_error.value) == "uq_pago_cobro_id"
+
+    with pytest.raises(IntegrityError) as pass_error:
+        with db_session.begin_nested():
+            db_session.add(
+                Pase(
+                    cobro_id=cobro.id,
+                    dia_operativo=cobro.dia_operativo,
+                    placa=cobro.placa,
+                    sede_id=cobro.sede_id,
+                    vigente_desde=pagado_en,
+                    vigente_hasta=datetime(2026, 3, 11, 6, 0, tzinfo=timezone.utc),
+                )
+            )
+            db_session.flush()
+    assert _check_constraint_name(pass_error.value) == "uq_pase_cobro_id"
 
 
 def test_required_tarifa_and_named_checks_and_uniqueness_are_enforced(

@@ -14,7 +14,9 @@ from app.modules.accesos.infrastructure.models import (
     Sede,
     Vehiculo,
 )
+from app.modules.cobros.domain.states import estado_cobro
 from app.modules.cobros.infrastructure.models import Cobro
+from app.modules.pases.infrastructure.repositories import SqlAlchemyPaseRepository
 
 
 class ValidarSalidaVehiculoUseCase:
@@ -67,27 +69,51 @@ class ValidarSalidaVehiculoUseCase:
             configuration=configuracion,
         ).dia_operativo(instante)
 
-        cobro_pendiente = None
+        cobro = None
         if vehiculo.tipo != "MOTO":
-            cobro_pendiente = (
+            cobro = (
                 self.db.query(Cobro)
                 .filter(
                     Cobro.placa == placa,
                     Cobro.sede_id == sede.id,
                     Cobro.dia_operativo == dia_operativo,
-                    Cobro.estado == "PENDIENTE",
                 )
                 .first()
             )
+            if cobro is None:
+                cobro = (
+                    self.db.query(Cobro)
+                    .filter(
+                        Cobro.placa == placa,
+                        Cobro.sede_id == sede.id,
+                        Cobro.estado == "PAGADO",
+                    )
+                    .order_by(Cobro.dia_operativo.desc())
+                    .first()
+                )
 
         barrera_abre = True
-        motivo = "Salida autorizada: cobro pagado, sin cobro o pase vigente."
-        if cobro_pendiente:
-            barrera_abre = False
-            motivo = (
-                "F-05: Salida rechazada. El vehículo posee una deuda "
-                f"pendiente (Cobro ID: {cobro_pendiente.id})."
-            )
+        motivo = "Salida autorizada: sin cobro o sin deuda vigente."
+        if cobro is not None:
+            estado = estado_cobro(cobro.estado)
+            pase = SqlAlchemyPaseRepository(self.db).get_by_charge_id(cobro.id)
+            pase_vigente = pase is not None and pase.esta_vigente(instante)
+            barrera_abre = estado.autoriza_salida(pase_vigente)
+            if not barrera_abre and cobro.estado == "PENDIENTE":
+                motivo = (
+                    "F-05: Salida rechazada. El vehículo posee una deuda "
+                    f"pendiente (Cobro ID: {cobro.id})."
+                )
+            elif not barrera_abre and cobro.estado == "PAGADO":
+                motivo = (
+                    "Salida rechazada: el pase asociado al cobro no está vigente."
+                )
+            elif not barrera_abre:
+                motivo = (
+                    f"Salida rechazada: el cobro está en estado {cobro.estado}."
+                )
+            else:
+                motivo = "Salida autorizada mediante un pase vigente."
 
         nuevo_evento = EventoAcceso(
             id=uuid4(),
