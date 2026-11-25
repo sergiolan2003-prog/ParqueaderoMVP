@@ -1,4 +1,5 @@
 from datetime import timedelta
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_
@@ -81,3 +82,27 @@ def crear_o_actualizar_tarifa(
     db.commit()
     db.refresh(nueva_tarifa)
     return nueva_tarifa
+
+
+def listar_tarifas(
+    db: Session,
+    *,
+    sede_id: UUID | None = None,
+    tipo_vehiculo: str | None = None,
+    franja: str | None = None,
+) -> list[Tarifa]:
+    query = db.query(Tarifa)
+    if sede_id is not None:
+        query = query.filter(Tarifa.sede_id == sede_id)
+    if tipo_vehiculo is not None:
+        query = query.filter(Tarifa.tipo_vehiculo == tipo_vehiculo.upper())
+    if franja is not None:
+        query = query.filter(Tarifa.franja == franja.upper())
+
+    return query.order_by(
+        Tarifa.sede_id,
+        Tarifa.tipo_vehiculo,
+        Tarifa.franja,
+        Tarifa.vigente_desde.desc(),
+        Tarifa.id,
+    ).all()

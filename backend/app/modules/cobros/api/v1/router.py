@@ -42,7 +42,7 @@ def listar_eventos(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "Rango de fechas inválido:" 
+                "Rango de fechas inválido: "
                 "fecha_desde no puede ser mayor que fecha_hasta."
             ),
         )

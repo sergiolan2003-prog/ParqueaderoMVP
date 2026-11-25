@@ -12,7 +12,7 @@ import { AuthContext } from "./authContext.js";
 export default function AuthProvider({ children }) {
   const [accessToken, setCurrentToken] = useState(getAccessToken);
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(getAccessToken()));
   const [error, setError] = useState(null);
 
   useEffect(
@@ -40,7 +40,7 @@ export default function AuthProvider({ children }) {
     } catch (loginError) {
       clearAccessToken();
       setError(loginError);
-      throw loginError;
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -50,6 +50,34 @@ export default function AuthProvider({ children }) {
     clearAccessToken();
     setUser(null);
     setError(null);
+  }, []);
+
+  useEffect(() => {
+    if (!getAccessToken()) {
+      return undefined;
+    }
+
+    let active = true;
+    getCurrentUser()
+      .then((currentUser) => {
+        if (active) {
+          setUser(currentUser);
+        }
+      })
+      .catch((refreshError) => {
+        if (active) {
+          setError(refreshError);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const refreshUser = useCallback(async () => {
@@ -74,6 +102,7 @@ export default function AuthProvider({ children }) {
 
   const value = useMemo(
     () => ({
+      accessToken,
       user,
       isLoading,
       error,

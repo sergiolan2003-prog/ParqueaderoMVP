@@ -11,7 +11,7 @@ from app.core.config import (
     build_operating_day_configuration,
     settings,
 )
-from app.core.operating_day import OperatingDayService
+from app.core.operating_day import OperatingDayService, OperatingPeriod
 from app.modules.accesos.domain.exceptions import (
     CarrilNoEncontradoError,
     CarrilNoEsEntradaError,
@@ -68,6 +68,7 @@ class RegistrarEntradaUseCase:
         clock: Clock | None = None,
         confidence_threshold: float | None = None,
         cadena_validacion: CadenaValidacionIngreso | None = None,
+        operating_periods: tuple[OperatingPeriod, ...] | None = None,
     ) -> None:
         self._db = db
         self._clock = clock or SystemClock()
@@ -83,6 +84,7 @@ class RegistrarEntradaUseCase:
                 ValidadorPaseVigente(),
             )
         )
+        self._operating_periods = operating_periods
 
     def ejecutar(
         self,
@@ -149,7 +151,7 @@ class RegistrarEntradaUseCase:
         tipo_vehiculo = vehiculo.tipo if vehiculo is not None else tipo_clasificado
 
         configuration = replace(
-            build_operating_day_configuration(),
+            build_operating_day_configuration(periods=self._operating_periods),
             operating_day_start=sede.inicio_dia_operativo,
             timezone=sede.zona_horaria,
         )

@@ -15,8 +15,8 @@ function formatearCOP(valor) {
   return `$ ${Number(valor).toLocaleString("es-CO")}`;
 }
 
-export function PanelOperador({ estadoInicial = null }) {
-  const [token, setToken] = useState("");
+export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
+  const [token, setToken] = useState(accessToken);
   const [carrilId, setCarrilId] = useState("");
   const [placaInput, setPlacaInput] = useState("");
   const [confianzaInput, setConfianzaInput] = useState("0.98");
@@ -242,15 +242,17 @@ export function PanelOperador({ estadoInicial = null }) {
         <section className="card">
           <span className="eyebrow">CONTROL DE CARRIL</span>
           <form onSubmit={manejarEntradaSimulada} className="form-stack">
-            <label>
-              Token operador (Bearer)
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Pega tu JWT de operador"
-              />
-            </label>
+            {!accessToken && (
+              <label>
+                Token operador (Bearer)
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="Pega tu JWT de operador"
+                />
+              </label>
+            )}
             <label>
               ID del carril (UUID)
               <input

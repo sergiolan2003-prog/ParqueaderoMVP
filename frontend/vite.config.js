@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
       "^/auth(?:/|$)",
       "^/accesos(?:/|$)",
       "^/tarifas(?:/|$)",
+      "^/sedes(?:/|$)",
+      "^/consultas(?:/|$)",
+      "^/configuracion(?:/|$)",
       "^/pagos(?:/|$)",
     ].map((path) => [
       path,

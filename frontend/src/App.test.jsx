@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import App from "./App.jsx";
+import AuthProvider from "./auth/AuthProvider.jsx";
 
 afterEach(() => {
   cleanup();
@@ -16,7 +17,11 @@ it("consulta y muestra el estado de la API", async () => {
   });
   vi.stubGlobal("fetch", fetchMock);
 
-  render(<App />);
+  render(
+    <AuthProvider>
+      <App />
+    </AuthProvider>,
+  );
 
   expect(await screen.findByRole("status")).toHaveTextContent(
     "Estado de la API: ok",

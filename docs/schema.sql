@@ -138,5 +138,20 @@ CREATE INDEX ix_pase_placa_sede_vigencia ON pase (placa, sede_id, vigente_desde,
 
 UPDATE alembic_version SET version_num='0004_pases' WHERE alembic_version.version_num = '0003_usuario_auth';
 
+-- HU-16: Persistent operational schedule and LPR threshold.
+
+CREATE TABLE configuracion_operativa (
+    id SMALLINT DEFAULT 1 NOT NULL,
+    daytime_start TIME WITHOUT TIME ZONE NOT NULL,
+    daytime_end TIME WITHOUT TIME ZONE NOT NULL,
+    nighttime_start TIME WITHOUT TIME ZONE NOT NULL,
+    nighttime_end TIME WITHOUT TIME ZONE NOT NULL,
+    lpr_confidence_threshold FLOAT NOT NULL,
+    CONSTRAINT pk_configuracion_operativa PRIMARY KEY (id),
+    CONSTRAINT ck_configuracion_operativa_singleton_id CHECK (id = 1),
+    CONSTRAINT ck_configuracion_operativa_lpr_confidence_range
+        CHECK (lpr_confidence_threshold >= 0 AND lpr_confidence_threshold <= 1)
+);
+
 COMMIT;
 
