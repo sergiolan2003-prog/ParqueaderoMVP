@@ -7,7 +7,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:
-    from app.core.operating_day import OperatingDayConfiguration
+    from app.core.operating_day import OperatingDayConfiguration, OperatingPeriod
 
 
 class Settings(BaseSettings):
@@ -55,12 +55,15 @@ settings = Settings()
 
 def build_operating_day_configuration(
     source: Settings = settings,
+    periods: tuple[OperatingPeriod, ...] | None = None,
 ) -> OperatingDayConfiguration:
     from app.core.operating_day import OperatingDayConfiguration, OperatingPeriod
 
     return OperatingDayConfiguration(
         operating_day_start=source.operating_day_start,
-        periods=(
+        periods=periods
+        if periods is not None
+        else (
             OperatingPeriod(
                 code="DIURNA",
                 start=source.daytime_start,

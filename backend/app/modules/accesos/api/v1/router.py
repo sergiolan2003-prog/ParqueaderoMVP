@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.core.clock import Clock, get_clock
-from app.core.config import settings
 from app.core.database import get_db
 from app.modules.accesos.application.entry import RegistrarEntradaUseCase
 from app.modules.accesos.application.services import ValidarSalidaVehiculoUseCase
@@ -25,6 +24,9 @@ from app.modules.accesos.domain.placa import PlacaInvalidaError
 from app.modules.auth.api.dependencies import requiere_rol
 from app.modules.auth.domain.entities import Rol
 from app.modules.cobros.domain.motor_cobro import TarifaNoConfiguradaError
+from app.modules.configuracion.application.services import (
+    obtener_configuracion_operativa,
+)
 
 router = APIRouter(prefix="/accesos", tags=["Accesos"])
 PLACA_COLOMBIANA_PATTERN = r"^(?:[A-Z]{3}\d{3}|[A-Z]{3}\d{2}[A-Z])$"
@@ -183,10 +185,12 @@ def registrar_entrada(
     payload: EntradaRequest,
     db: Session = Depends(get_db),
 ) -> EntradaResponse:
+    configuracion = obtener_configuracion_operativa(db)
     try:
         resultado = RegistrarEntradaUseCase(
             db,
-            confidence_threshold=settings.lpr_confidence_threshold,
+            confidence_threshold=configuracion.lpr_confidence_threshold,
+            operating_periods=configuracion.operating_periods,
         ).ejecutar(
             evento_id=payload.evento_id,
             placa=payload.placa,
@@ -220,6 +224,7 @@ def registrar_entrada_simulada(
     payload: EntradaSimuladaRequest,
     db: Session = Depends(get_db),
 ) -> EntradaResponse:
+    configuracion = obtener_configuracion_operativa(db)
     lector = LectorSimulado(
         aleatorio=Random(),
         placa=payload.placa,
@@ -228,7 +233,8 @@ def registrar_entrada_simulada(
     try:
         resultado = RegistrarEntradaUseCase(
             db,
-            confidence_threshold=settings.lpr_confidence_threshold,
+            confidence_threshold=configuracion.lpr_confidence_threshold,
+            operating_periods=configuracion.operating_periods,
         ).ejecutar_con_lector(
             evento_id=payload.evento_id,
             carril_id=payload.carril_id,

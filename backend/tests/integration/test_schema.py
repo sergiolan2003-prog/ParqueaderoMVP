@@ -41,6 +41,7 @@ EXPECTED_TABLES = {
     "pago",
     "usuario",
     "pase",
+    "configuracion_operativa",
 }
 
 
@@ -482,6 +483,7 @@ def test_alembic_offline_sql_contains_cobro_and_unique_constraint() -> None:
     assert "uq_cobro_placa_sede_dia" in result.stdout
     assert "CREATE TABLE usuario" in result.stdout
     assert "uq_usuario_username" in result.stdout
+    assert "CREATE TABLE configuracion_operativa" in result.stdout
 
 
 def test_duplicate_usuario_is_rejected_by_database_and_repository(

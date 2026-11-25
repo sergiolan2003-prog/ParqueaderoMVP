@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
       "^/tarifas(?:/|$)",
       "^/sedes(?:/|$)",
       "^/consultas(?:/|$)",
+      "^/configuracion(?:/|$)",
       "^/pagos(?:/|$)",
     ].map((path) => [
       path,

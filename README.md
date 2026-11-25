@@ -267,6 +267,11 @@ Las rutas administrativas requieren un JWT con rol `ADMINISTRADOR`:
   `PAGADO`, `ANULADO` o `VENCIDO`). Las placas se normalizan a mayúsculas;
   ambas consultas aceptan `page` (desde 1) y `page_size` (de 1 a 100), y
   devuelven `items`, `total`, `page`, `page_size` y `total_pages`.
+- `GET /configuracion/operativa` consulta los horarios diurno/nocturno y el
+  umbral LPR. `PUT` en la misma ruta actualiza los valores de forma persistente;
+  las franjas deben cubrir las 24 horas sin huecos ni solapamientos, y el umbral
+  debe estar entre 0 y 1. Antes del primer cambio administrativo se conservan
+  los valores configurados en el entorno.
 
 Las fechas de eventos se interpretan en la zona horaria configurada para la
 operación; las fechas de cobros corresponden a `dia_operativo`. Un rango donde
@@ -276,7 +281,9 @@ La interfaz web en `http://localhost:5173` solicita login y muestra las pestaña
 Tarifas, Cupos y Consultas únicamente a `ADMINISTRADOR`. Un `OPERADOR` recibe
 un mensaje de acceso denegado. La pestaña Tarifas permite crear una tarifa o
 iniciar una nueva versión desde la tarifa vigente; Cupos permite actualizar
-los valores por sede; Consultas pagina eventos y cobros con sus filtros.
+los valores por sede; Consultas pagina eventos y cobros con sus filtros;
+Configuración modifica horarios y umbral LPR, que se aplican en los siguientes
+ingresos sin reiniciar la API.
 
 ## Ingreso de vehículos (HU-06)
 

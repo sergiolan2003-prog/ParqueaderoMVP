@@ -2,12 +2,14 @@ import { useState } from "react";
 
 import CapacityPage from "./CapacityPage.jsx";
 import ConsultationsPage from "./ConsultationsPage.jsx";
+import ConfigurationPage from "./ConfigurationPage.jsx";
 import TariffsPage from "./TariffsPage.jsx";
 
 const tabs = [
   { id: "tarifas", label: "Tarifas" },
   { id: "cupos", label: "Cupos" },
   { id: "consultas", label: "Consultas" },
+  { id: "configuracion", label: "Configuración" },
 ];
 
 export default function AdminPanel({ health, onLogout, user }) {
@@ -72,6 +74,7 @@ export default function AdminPanel({ health, onLogout, user }) {
           {activeTab === "tarifas" && <TariffsPage />}
           {activeTab === "cupos" && <CapacityPage />}
           {activeTab === "consultas" && <ConsultationsPage />}
+          {activeTab === "configuracion" && <ConfigurationPage />}
         </section>
       </main>
     </div>

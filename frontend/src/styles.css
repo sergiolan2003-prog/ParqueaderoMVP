@@ -425,6 +425,10 @@ h3 {
   max-width: 48rem;
 }
 
+.section-heading {
+  margin-bottom: -0.25rem;
+}
+
 .table-scroll {
   width: 100%;
   overflow-x: auto;

@@ -33,6 +33,14 @@ const accessEvent = {
   foto_url: null,
 };
 
+const operationalConfiguration = {
+  daytime_start: "06:00:00",
+  daytime_end: "18:00:00",
+  nighttime_start: "18:00:00",
+  nighttime_end: "06:00:00",
+  lpr_confidence_threshold: 0.8,
+};
+
 function jsonResponse(data, status = 200) {
   return {
     ok: status >= 200 && status < 300,
@@ -44,6 +52,7 @@ function jsonResponse(data, status = 200) {
 function installApiMock({ role = "ADMINISTRADOR", rejectTariff = false } = {}) {
   const tariffs = [existingTariff];
   const siteState = { ...site };
+  const configurationState = { ...operationalConfiguration };
   const calls = [];
   const fetchMock = vi.fn(async (input, options = {}) => {
     const url = new URL(input, window.location.origin);
@@ -108,6 +117,13 @@ function installApiMock({ role = "ADMINISTRADOR", rejectTariff = false } = {}) {
         page_size: 10,
         total_pages: 0,
       });
+    }
+    if (url.pathname === "/configuracion/operativa" && method === "GET") {
+      return jsonResponse(configurationState);
+    }
+    if (url.pathname === "/configuracion/operativa" && method === "PUT") {
+      Object.assign(configurationState, JSON.parse(options.body));
+      return jsonResponse(configurationState);
     }
     return jsonResponse({ detail: "Not found" }, 404);
   });
@@ -350,4 +366,54 @@ it("sends the selected charge state to the paginated consultation", async () => 
     ).toBe(true);
   });
   expect(screen.getByText(/0 resultados/)).toBeInTheDocument();
+});
+
+it("updates the global schedule and LPR threshold from Configuration", async () => {
+  const user = userEvent.setup();
+  const { calls } = installApiMock();
+  renderApp();
+  await user.type(screen.getByLabelText("Usuario"), "test-user");
+  await user.type(screen.getByLabelText("Contraseña"), "test-password");
+  await user.click(screen.getByRole("button", { name: "Ingresar al panel" }));
+  await user.click(
+    await screen.findByRole("tab", { name: "Configuración" }),
+  );
+
+  expect(
+    await screen.findByRole("heading", { name: "Configuración operativa" }),
+  ).toBeInTheDocument();
+  await user.clear(screen.getByLabelText("Inicio de franja diurna"));
+  await user.type(screen.getByLabelText("Inicio de franja diurna"), "07:00");
+  await user.clear(screen.getByLabelText("Fin de franja diurna"));
+  await user.type(screen.getByLabelText("Fin de franja diurna"), "19:00");
+  await user.clear(screen.getByLabelText("Inicio de franja nocturna"));
+  await user.type(screen.getByLabelText("Inicio de franja nocturna"), "19:00");
+  await user.clear(screen.getByLabelText("Fin de franja nocturna"));
+  await user.type(screen.getByLabelText("Fin de franja nocturna"), "07:00");
+  const confidenceInput = screen.getByRole("spinbutton", {
+    name: /Umbral de confianza LPR/,
+  });
+  await user.clear(confidenceInput);
+  await user.type(confidenceInput, "0.85");
+  await user.click(
+    screen.getByRole("button", { name: "Guardar configuración" }),
+  );
+
+  expect(
+    await screen.findByText(
+      "Configuración operativa actualizada correctamente.",
+    ),
+  ).toBeInTheDocument();
+  const updateCall = calls.find(
+    (call) =>
+      call.method === "PUT" &&
+      call.url.pathname === "/configuracion/operativa",
+  );
+  expect(JSON.parse(updateCall.body)).toEqual({
+    daytime_start: "07:00",
+    daytime_end: "19:00",
+    nighttime_start: "19:00",
+    nighttime_end: "07:00",
+    lpr_confidence_threshold: 0.85,
+  });
 });
