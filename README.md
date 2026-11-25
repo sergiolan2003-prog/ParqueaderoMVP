@@ -150,8 +150,51 @@ npm run build
 ```
 
 La prueba de salud valida `GET /health` y la respuesta `{"status": "ok"}`.
-El frontend tiene una prueba Vitest que verifica la consulta y visualización
-del estado de la API.
+Las pruebas Vitest cubren el cliente HTTP, el contrato de autenticación y la
+visualización del estado de la API. El cliente conserva el JWT solo en memoria;
+al recargar la página se requiere iniciar sesión de nuevo. El cierre de sesión
+descarta el token del navegador; la API actual no ofrece revocación de JWT, por
+lo que un token copiado seguiría vigente hasta su expiración.
+
+Para validar la comunicación real a través de los proxies, abre Docker Desktop
+y verifica que los puertos 5432, 8000 y 5173 estén libres. Este comando usa un
+proyecto y volumen PostgreSQL separados de los de desarrollo:
+
+```powershell
+docker compose -p par28-integration up --build -d
+```
+
+Con el frontend disponible en `http://localhost:5173`, define credenciales de
+un operador de prueba como variables de entorno en la sesión y ejecuta:
+
+```powershell
+$env:INTEGRATION_OPERATOR_USERNAME = "<usuario operador>"
+# Define INTEGRATION_OPERATOR_PASSWORD mediante el mecanismo seguro de tu entorno.
+npm.cmd run test:integration
+```
+
+Al terminar, detén únicamente ese proyecto:
+
+```powershell
+docker compose -p par28-integration down
+```
+
+La prueba verifica `/health`, login, usuario autenticado, autorización por rol,
+la ruta de tarifas sin barra final y la validación real de las rutas existentes
+de entrada, pago y salida. El login y `/auth/me` leen el usuario de PostgreSQL;
+las solicitudes de negocio se detienen en validación. No crea ni actualiza
+datos de negocio. No imprime el token ni los valores de credenciales. Para
+ejecutarla contra otro origen del frontend, define `FRONTEND_BASE_URL`.
+También consulta `http://localhost:8000/openapi.json` y compara métodos, rutas,
+campos requeridos y esquemas de respuesta con el contrato observado por los
+servicios del frontend; para otro origen de FastAPI, define `API_BASE_URL`.
+
+En ejecución local de Vite, `VITE_API_BASE_URL` queda vacío para usar rutas
+relativas y `API_PROXY_TARGET` apunta al backend, por defecto
+`http://localhost:8000`. En Docker Compose, el frontend se sirve por Nginx y
+este reenvía las rutas API al servicio `api:8000`; dentro del contenedor no se
+usa `localhost` para localizar el backend. Si se configura `VITE_API_BASE_URL`
+con un origen distinto, ese servidor debe permitir CORS para el frontend.
 
 ## Variables de entorno
 
@@ -176,6 +219,8 @@ documenta todas las variables requeridas:
 | `JWT_EXPIRE_MINUTES` | Duración del token en minutos, por defecto `60` |
 | `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD` | Credenciales iniciales del administrador |
 | `SEED_OPERADOR_USERNAME` / `SEED_OPERADOR_PASSWORD` | Credenciales iniciales del operador |
+| `VITE_API_BASE_URL` | URL base del cliente frontend; vacía usa el proxy del mismo origen |
+| `API_PROXY_TARGET` | Destino de FastAPI para el proxy de Vite en desarrollo local |
 
 Compose valida las variables obligatorias y nombra la variable faltante. La
 configuración de la API también valida sus valores requeridos al iniciar.
