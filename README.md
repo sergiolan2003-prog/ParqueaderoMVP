@@ -152,11 +152,20 @@ npm run build
 La prueba de salud valida `GET /health` y la respuesta `{"status": "ok"}`.
 Las pruebas Vitest cubren el cliente HTTP, el contrato de autenticación y la
 visualización del estado de la API. El cliente conserva el JWT solo en memoria;
-al recargar la página se requiere iniciar sesión de nuevo.
+al recargar la página se requiere iniciar sesión de nuevo. El cierre de sesión
+descarta el token del navegador; la API actual no ofrece revocación de JWT, por
+lo que un token copiado seguiría vigente hasta su expiración.
 
-Para validar la comunicación real a través de los proxies, con Docker Compose
-activo, frontend disponible en `http://localhost:5173` y credenciales de un
-operador de prueba configuradas como variables de entorno en la sesión:
+Para validar la comunicación real a través de los proxies, abre Docker Desktop
+y verifica que los puertos 5432, 8000 y 5173 estén libres. Este comando usa un
+proyecto y volumen PostgreSQL separados de los de desarrollo:
+
+```powershell
+docker compose -p par28-integration up --build -d
+```
+
+Con el frontend disponible en `http://localhost:5173`, define credenciales de
+un operador de prueba como variables de entorno en la sesión y ejecuta:
 
 ```powershell
 $env:INTEGRATION_OPERATOR_USERNAME = "<usuario operador>"
@@ -164,10 +173,21 @@ $env:INTEGRATION_OPERATOR_USERNAME = "<usuario operador>"
 npm.cmd run test:integration
 ```
 
-La prueba verifica `/health`, login, usuario autenticado, autorización por rol
-y la validación real de las rutas existentes de entrada, pago y salida. No crea
-entradas ni pagos. No imprime el token ni los valores de credenciales. Para
+Al terminar, detén únicamente ese proyecto:
+
+```powershell
+docker compose -p par28-integration down
+```
+
+La prueba verifica `/health`, login, usuario autenticado, autorización por rol,
+la ruta de tarifas sin barra final y la validación real de las rutas existentes
+de entrada, pago y salida. El login y `/auth/me` leen el usuario de PostgreSQL;
+las solicitudes de negocio se detienen en validación. No crea ni actualiza
+datos de negocio. No imprime el token ni los valores de credenciales. Para
 ejecutarla contra otro origen del frontend, define `FRONTEND_BASE_URL`.
+También consulta `http://localhost:8000/openapi.json` y compara métodos, rutas,
+campos requeridos y esquemas de respuesta con el contrato observado por los
+servicios del frontend; para otro origen de FastAPI, define `API_BASE_URL`.
 
 En ejecución local de Vite, `VITE_API_BASE_URL` queda vacío para usar rutas
 relativas y `API_PROXY_TARGET` apunta al backend, por defecto

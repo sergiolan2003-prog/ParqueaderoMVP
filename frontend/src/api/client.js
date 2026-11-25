@@ -158,7 +158,8 @@ export class ApiClient {
       throw new ApiError(errorMessage(response.status, data?.detail), {
         status: response.status,
         code: `HTTP_${response.status}`,
-        detail: data?.detail ?? data,
+        detail:
+          response.status >= 500 ? null : (data?.detail ?? data),
       });
     }
 

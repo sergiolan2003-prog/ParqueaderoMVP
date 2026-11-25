@@ -105,6 +105,7 @@ describe("ApiClient", () => {
     await expect(client.get("/health")).rejects.toMatchObject({
       status: 500,
       message: "El servidor encontró un error. Inténtelo de nuevo más tarde.",
+      detail: null,
     });
   });
 
