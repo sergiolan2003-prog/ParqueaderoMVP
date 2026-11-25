@@ -16,6 +16,7 @@ from app.modules.accesos.domain.exceptions import (
     CarrilNoEncontradoError,
     CarrilNoEsEntradaError,
     ConfianzaLPRInsuficienteError,
+    CupoLlenoError,
     EventoAccesoDuplicadoError,
     IngresoRechazadoError,
     SedeNoEncontradaError,
@@ -134,8 +135,12 @@ class SalidaResponse(BaseModel):
     motivo: str
     registrado_en: datetime
 
-
 def _http_error_ingreso(error: Exception) -> HTTPException:
+    if isinstance(error, CupoLlenoError):
+        return HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{error.codigo}: {error.mensaje}",
+        )
     if isinstance(error, (CarrilNoEncontradoError, SedeNoEncontradaError)):
         return HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -206,6 +211,7 @@ def registrar_entrada(
         PlacaInvalidaError,
         SedeNoEncontradaError,
         TarifaNoConfiguradaError,
+        CupoLlenoError
     ) as error:
         raise _http_error_ingreso(error) from error
     return EntradaResponse.model_validate(resultado)
@@ -246,6 +252,7 @@ def registrar_entrada_simulada(
         PlacaInvalidaError,
         SedeNoEncontradaError,
         TarifaNoConfiguradaError,
+        CupoLlenoError
     ) as error:
         raise _http_error_ingreso(error) from error
     return EntradaResponse.model_validate(resultado)

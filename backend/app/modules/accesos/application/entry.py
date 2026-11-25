@@ -3,6 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
@@ -124,6 +125,33 @@ class RegistrarEntradaUseCase:
             foto_url=foto_url,
         )
 
+    def _ocupacion_actual_por_tipo(self, sede_id: UUID, tipo_vehiculo: str) -> int:
+        entradas = (
+            self._db.query(func.count(EventoAcceso.id))
+            .join(Carril, EventoAcceso.carril_id == Carril.id)
+            .join(Vehiculo, EventoAcceso.placa == Vehiculo.placa)
+            .filter(
+                Carril.sede_id == sede_id,
+                Carril.sentido == "ENTRADA",
+                Vehiculo.tipo == tipo_vehiculo,
+            )
+            .scalar()
+            or 0
+        )
+        salidas = (
+            self._db.query(func.count(EventoAcceso.id))
+            .join(Carril, EventoAcceso.carril_id == Carril.id)
+            .join(Vehiculo, EventoAcceso.placa == Vehiculo.placa)
+            .filter(
+                Carril.sede_id == sede_id,
+                Carril.sentido == "SALIDA",
+                Vehiculo.tipo == tipo_vehiculo,
+            )
+            .scalar()
+            or 0
+        )
+        return max(0, int(entradas) - int(salidas))
+
     def _ejecutar_lectura(
         self,
         evento_id: UUID,
@@ -168,14 +196,25 @@ class RegistrarEntradaUseCase:
             .first()
             is not None
         )
+        
+        cupo_maximo = (
+            sede.cupos_carro if tipo_vehiculo == "CARRO" else sede.cupos_moto
+        )
+
+        ocupacion_actual = self._ocupacion_actual_por_tipo(sede.id, tipo_vehiculo)
+
         self._cadena_validacion.validar(
             ContextoValidacionIngreso(
                 confianza_lpr=lectura.confianza,
                 umbral_confianza=self._umbral_confianza,
                 lectura_manual=lectura.lectura_manual,
                 pase_vigente=pase_vigente,
+                tipo_vehiculo=tipo_vehiculo,
+                ocupacion_actual=ocupacion_actual,
+                cupo_maximo=cupo_maximo,
             )
         )
+
         cobro_existente = (
             self._db.query(Cobro)
             .filter(

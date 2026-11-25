@@ -898,3 +898,53 @@ def test_confirming_same_payment_twice_is_idempotent_through_use_case(
         .count()
         == 1
     )
+
+def test_cupo_por_tipo_estado_lleno_y_liberacion_al_salir(
+    db_session: Session,
+    operator_client: tuple[TestClient, dict[str, str]],
+    prepare_paid_pass: Callable[[Cobro, datetime], Pase],
+) -> None:
+    client, headers = operator_client
+    sede, entry_lane = _new_sede(db_session, "CuposHU13")
+    exit_lane = _new_exit_lane(db_session, sede)
+    sede.cupos_carro = 1
+    sede.cupos_moto = 1
+    db_session.flush()
+    _add_standard_tariffs(db_session, sede)
+
+    t1 = datetime(2026, 3, 10, 8, 0, tzinfo=LOCAL_ZONE)
+    t2 = datetime(2026, 3, 10, 8, 5, tzinfo=LOCAL_ZONE)
+    t3 = datetime(2026, 3, 10, 8, 10, tzinfo=LOCAL_ZONE)
+
+    # 1. Primer carro entra ok (cupo carro queda 1/1 -> LLENO)
+    r_carro_1 = _entry(client, headers, entry_lane, "ABC123", t1)
+    assert r_carro_1.status_code == 201
+    cobro_1 = db_session.get(Cobro, UUID(r_carro_1.json()["cobro_id"]))
+    assert cobro_1 is not None
+    prepare_paid_pass(cobro_1, t1)
+
+    # 2. Segundo carro es rechazado con LLENO (409) y no crea cobro extra
+    r_carro_2 = _entry(client, headers, entry_lane, "DEF456", t2)
+    assert r_carro_2.status_code == 409
+    assert "LLENO" in r_carro_2.json()["detail"]
+    assert db_session.query(Cobro).filter(Cobro.sede_id == sede.id).count() == 1
+
+    # 3. Moto sigue entrando porque tiene su propio cupo independiente
+    r_moto = _entry(client, headers, entry_lane, "ABC12D", t3)
+    assert r_moto.status_code == 201
+
+    # 4. Sale el primer carro pagado -> abre barrera, libera cupo y entra otro
+    salida = ValidarSalidaVehiculoUseCase(
+        db_session,
+        clock=FixedClock(datetime(2026, 3, 10, 9, 0, tzinfo=LOCAL_ZONE)),
+    ).ejecutar("ABC123", exit_lane.id)
+    assert salida["barrera_abre"] is True
+
+    r_carro_3 = _entry(
+        client,
+        headers,
+        entry_lane,
+        "GHI789",
+        datetime(2026, 3, 10, 9, 5, tzinfo=LOCAL_ZONE),
+    )
+    assert r_carro_3.status_code == 201
