@@ -33,6 +33,10 @@ class Pago(Base):
             "referencia_pasarela",
             name=constraints.PAGO_REFERENCIA_UNIQUE,
         ),
+        UniqueConstraint(
+            "cobro_id",
+            name=constraints.PAGO_COBRO_UNIQUE,
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

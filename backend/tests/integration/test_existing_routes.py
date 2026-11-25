@@ -157,18 +157,17 @@ def test_exit_rejects_vehicle_missing_from_registry(db_session: Session) -> None
 
 
 @pytest.mark.parametrize(
-    ("franja", "valor", "franja_opuesta", "valor_opuesto"),
+    ("night_value", "should_reject"),
     [
-        ("DIURNA", Decimal("10000.00"), "NOCTURNA", Decimal("10000.00")),
-        ("NOCTURNA", Decimal("10000.00"), "DIURNA", Decimal("10000.00")),
+        (Decimal("10000.00"), True),
+        (Decimal("11000.00"), True),
+        (Decimal("9000.00"), False),
     ],
 )
-def test_tariff_rn02_requires_day_rate_strictly_above_night_rate(
+def test_tariff_rn02_rejects_night_equal_or_above_day_rate(
     db_session: Session,
-    franja: str,
-    valor: Decimal,
-    franja_opuesta: str,
-    valor_opuesto: Decimal,
+    night_value: Decimal,
+    should_reject: bool,
 ) -> None:
     sede = _new_sede("Tarifas")
     db_session.add(sede)
@@ -177,8 +176,8 @@ def test_tariff_rn02_requires_day_rate_strictly_above_night_rate(
         Tarifa(
             sede_id=sede.id,
             tipo_vehiculo="CARRO",
-            franja=franja_opuesta,
-            valor=valor_opuesto,
+            franja="DIURNA",
+            valor=Decimal("10000.00"),
             vigente_desde=date(2026, 1, 1),
         )
     )
@@ -186,15 +185,19 @@ def test_tariff_rn02_requires_day_rate_strictly_above_night_rate(
     tarifa = TarifaCreate(
         sede_id=sede.id,
         tipo_vehiculo="CARRO",
-        franja=franja,
-        valor=valor,
+        franja="NOCTURNA",
+        valor=night_value,
         vigente_desde=date(2026, 3, 10),
     )
 
-    with pytest.raises(HTTPException) as error:
-        crear_o_actualizar_tarifa(db_session, tarifa)
-
-    assert error.value.status_code == 400
+    if should_reject:
+        with pytest.raises(HTTPException) as error:
+            crear_o_actualizar_tarifa(db_session, tarifa)
+        assert error.value.status_code == 400
+        assert "RN-02" in error.value.detail
+    else:
+        created = crear_o_actualizar_tarifa(db_session, tarifa)
+        assert created.valor == night_value
 
 
 def test_exit_endpoint_requires_operator_and_validates_plate_format(
