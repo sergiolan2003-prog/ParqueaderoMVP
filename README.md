@@ -55,7 +55,7 @@ La API aplica las migraciones de Alembic al arrancar. Servicios disponibles:
 - Frontend: http://localhost:5173
 - API: http://localhost:8000
 - Swagger: http://localhost:8000/docs
-- PostgreSQL: `localhost:5432`
+- PostgreSQL: `localhost:5433` (host) / `db:5432` (Docker network)
 
 Para detener los servicios, pulsa `Ctrl+C` y ejecuta `docker compose down`.
 El volumen de PostgreSQL persiste entre reinicios; `docker compose down -v`
