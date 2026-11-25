@@ -1,20 +1,28 @@
 import { useEffect, useState } from "react";
 
+import { apiClient } from "./api/client.js";
+
 export default function App() {
   const [health, setHealth] = useState({ status: "loading", message: "" });
 
   useEffect(() => {
-    fetch("/health")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`La API respondió con HTTP ${response.status}`);
+    let active = true;
+    apiClient
+      .get("/health")
+      .then((data) => {
+        if (active) {
+          setHealth({ status: data.status, message: "" });
         }
-        return response.json();
       })
-      .then((data) => setHealth({ status: data.status, message: "" }))
-      .catch((error) =>
-        setHealth({ status: "error", message: error.message }),
-      );
+      .catch((error) => {
+        if (active) {
+          setHealth({ status: "error", message: error.message });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (

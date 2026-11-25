@@ -1,8 +1,8 @@
 # Sistema de Parqueadero MVP
 
-Esqueleto inicial de un sistema de parqueadero con reconocimiento de placas
-(LPR). Esta HU prepara la estructura, la API, la interfaz y el entorno de
-desarrollo; no implementa lógica de negocio.
+MVP de un sistema de parqueadero con reconocimiento de placas (LPR). Incluye
+API para accesos, autenticación, administración de tarifas y generación inicial
+de cobros; el frontend muestra el estado de la API.
 
 ## Stack
 
@@ -55,7 +55,7 @@ La API aplica las migraciones de Alembic al arrancar. Servicios disponibles:
 - Frontend: http://localhost:5173
 - API: http://localhost:8000
 - Swagger: http://localhost:8000/docs
-- PostgreSQL: `localhost:5432`
+- PostgreSQL: `localhost:5433` (host) / `db:5432` (Docker network)
 
 Para detener los servicios, pulsa `Ctrl+C` y ejecuta `docker compose down`.
 El volumen de PostgreSQL persiste entre reinicios; `docker compose down -v`
@@ -150,8 +150,51 @@ npm run build
 ```
 
 La prueba de salud valida `GET /health` y la respuesta `{"status": "ok"}`.
-El frontend tiene una prueba Vitest que verifica la consulta y visualización
-del estado de la API.
+Las pruebas Vitest cubren el cliente HTTP, el contrato de autenticación y la
+visualización del estado de la API. El cliente conserva el JWT solo en memoria;
+al recargar la página se requiere iniciar sesión de nuevo. El cierre de sesión
+descarta el token del navegador; la API actual no ofrece revocación de JWT, por
+lo que un token copiado seguiría vigente hasta su expiración.
+
+Para validar la comunicación real a través de los proxies, abre Docker Desktop
+y verifica que los puertos 5432, 8000 y 5173 estén libres. Este comando usa un
+proyecto y volumen PostgreSQL separados de los de desarrollo:
+
+```powershell
+docker compose -p par28-integration up --build -d
+```
+
+Con el frontend disponible en `http://localhost:5173`, define credenciales de
+un operador de prueba como variables de entorno en la sesión y ejecuta:
+
+```powershell
+$env:INTEGRATION_OPERATOR_USERNAME = "<usuario operador>"
+# Define INTEGRATION_OPERATOR_PASSWORD mediante el mecanismo seguro de tu entorno.
+npm.cmd run test:integration
+```
+
+Al terminar, detén únicamente ese proyecto:
+
+```powershell
+docker compose -p par28-integration down
+```
+
+La prueba verifica `/health`, login, usuario autenticado, autorización por rol,
+la ruta de tarifas sin barra final y la validación real de las rutas existentes
+de entrada, pago y salida. El login y `/auth/me` leen el usuario de PostgreSQL;
+las solicitudes de negocio se detienen en validación. No crea ni actualiza
+datos de negocio. No imprime el token ni los valores de credenciales. Para
+ejecutarla contra otro origen del frontend, define `FRONTEND_BASE_URL`.
+También consulta `http://localhost:8000/openapi.json` y compara métodos, rutas,
+campos requeridos y esquemas de respuesta con el contrato observado por los
+servicios del frontend; para otro origen de FastAPI, define `API_BASE_URL`.
+
+En ejecución local de Vite, `VITE_API_BASE_URL` queda vacío para usar rutas
+relativas y `API_PROXY_TARGET` apunta al backend, por defecto
+`http://localhost:8000`. En Docker Compose, el frontend se sirve por Nginx y
+este reenvía las rutas API al servicio `api:8000`; dentro del contenedor no se
+usa `localhost` para localizar el backend. Si se configura `VITE_API_BASE_URL`
+con un origen distinto, ese servidor debe permitir CORS para el frontend.
 
 ## Variables de entorno
 
@@ -167,7 +210,7 @@ documenta todas las variables requeridas:
 | `DAYTIME_START` / `DAYTIME_END` | Inicio y fin exclusivo de la franja diurna |
 | `NIGHTTIME_START` / `NIGHTTIME_END` | Inicio y fin exclusivo de la franja nocturna |
 | `OPERATING_TIMEZONE` | Zona horaria usada para calcular día y franja |
-| `LPR_CONFIDENCE_THRESHOLD` | Umbral de confianza LPR entre 0 y 1 (uso en HU-12) |
+| `LPR_CONFIDENCE_THRESHOLD` | Umbral de confianza LPR entre 0 y 1, aplicado en HU-06 |
 | `POSTGRES_DB` | Base inicializada por PostgreSQL |
 | `POSTGRES_USER` | Usuario inicializado por PostgreSQL |
 | `POSTGRES_PASSWORD` | Contraseña local de ejemplo para PostgreSQL |
@@ -176,6 +219,8 @@ documenta todas las variables requeridas:
 | `JWT_EXPIRE_MINUTES` | Duración del token en minutos, por defecto `60` |
 | `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD` | Credenciales iniciales del administrador |
 | `SEED_OPERADOR_USERNAME` / `SEED_OPERADOR_PASSWORD` | Credenciales iniciales del operador |
+| `VITE_API_BASE_URL` | URL base del cliente frontend; vacía usa el proxy del mismo origen |
+| `API_PROXY_TARGET` | Destino de FastAPI para el proxy de Vite en desarrollo local |
 
 Compose valida las variables obligatorias y nombra la variable faltante. La
 configuración de la API también valida sus valores requeridos al iniciar.
@@ -204,6 +249,30 @@ Las rutas de salida (`POST /accesos/salida`) requieren el rol `OPERADOR` y las
 de administración (`POST /tarifas/`) requieren `ADMINISTRADOR`. La salida
 rechaza vehículos no registrados y consulta la deuda pendiente del día
 operativo y sede asociados al carril.
+
+## Ingreso de vehículos (HU-06)
+
+Las rutas de ingreso requieren el rol `OPERADOR` y registran el evento de
+acceso junto con el flujo de cobro de HU-19:
+
+- `POST /accesos/entrada` conserva el contrato existente: recibe `evento_id`,
+  `placa`, `carril_id` y `ocurrido_en`. `confianza_lpr` sigue siendo opcional
+  (por defecto `1.0`).
+- `POST /accesos/entrada/simulada` usa el lector simulado. Requiere `carril_id`;
+  `evento_id`, `ocurrido_en`, `placa` y `confianza_lpr` son opcionales. Si no
+  se especifica la placa o la confianza, el simulador las genera.
+
+Ambas rutas responden con el mismo esquema. Una confianza menor que
+`LPR_CONFIDENCE_THRESHOLD` se rechaza con HTTP 422, salvo que
+`lectura_manual` sea `true` en la ruta compatible `/entrada`. El ingreso manual
+completo sigue fuera del alcance de HU-06 (HU-12). Reutilizar un `evento_id`
+registrado devuelve HTTP 409. Los esquemas y ejemplos están disponibles en
+Swagger: http://localhost:8000/docs.
+
+La cadena de validación aplica confianza, cupo y estado del pase en ese orden.
+El validador de cupo es no bloqueante hasta que se implemente HU-13. Consulta
+[docs/patron-chain-of-responsibility.md](docs/patron-chain-of-responsibility.md)
+para extenderla.
 
 ### HU-11: pago efectivo y pase vigente
 

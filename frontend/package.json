@@ -10,7 +10,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "node scripts/integration-smoke.js"
   },
   "dependencies": {
     "react": "^18.3.1",

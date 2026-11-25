@@ -11,6 +11,7 @@ afterEach(() => {
 it("consulta y muestra el estado de la API", async () => {
   const fetchMock = vi.fn().mockResolvedValue({
     ok: true,
+    status: 200,
     json: async () => ({ status: "ok" }),
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -20,5 +21,12 @@ it("consulta y muestra el estado de la API", async () => {
   expect(await screen.findByRole("status")).toHaveTextContent(
     "Estado de la API: ok",
   );
-  expect(fetchMock).toHaveBeenCalledWith("/health");
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/health",
+    expect.objectContaining({
+      method: "GET",
+      headers: expect.any(Headers),
+      signal: expect.any(AbortSignal),
+    }),
+  );
 });
