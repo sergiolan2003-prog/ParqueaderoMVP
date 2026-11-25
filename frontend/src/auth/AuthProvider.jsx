@@ -102,6 +102,7 @@ export default function AuthProvider({ children }) {
 
   const value = useMemo(
     () => ({
+      accessToken,
       user,
       isLoading,
       error,

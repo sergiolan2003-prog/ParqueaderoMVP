@@ -171,12 +171,15 @@ it("denies the administration panel to an operator", async () => {
   await signIn(user, "OPERADOR");
 
   expect(
-    await screen.findByRole("heading", { name: "Acceso denegado" }),
+    await screen.findByRole("heading", { name: "Panel del carril" }),
   ).toBeInTheDocument();
   expect(
-    screen.getByText(/cuenta test-user tiene rol OPERADOR/i),
+    screen.getByText(/Acceso al panel administrativo denegado/i),
   ).toBeInTheDocument();
   expect(screen.queryByRole("tab", { name: "Tarifas" })).not.toBeInTheDocument();
+  expect(
+    screen.queryByLabelText("Token operador (Bearer)"),
+  ).not.toBeInTheDocument();
 });
 
 it("restores a valid administrator session from session storage", async () => {

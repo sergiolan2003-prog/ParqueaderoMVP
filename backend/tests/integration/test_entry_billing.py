@@ -841,7 +841,7 @@ def test_scenario_9_manual_plate_entry_is_persisted(
     assert entry.json()["cobro_creado"] is True
 
 
-def test_low_confidence_automatic_read_is_rejected(
+def test_low_confidence_automatic_read_requires_operator_validation(
     db_session: Session,
     operator_client: tuple[TestClient, dict[str, str]],
 ) -> None:
