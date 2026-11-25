@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
 from app.core.clock import Clock, SystemClock
-from app.core.config import build_operating_day_configuration
+from app.core.config import build_operating_day_configuration, settings
 from app.core.operating_day import OperatingDayService
 from app.modules.accesos.domain.placa import ClasificadorPlaca, PlacaInvalidaError
 from app.modules.accesos.infrastructure.models import (
@@ -43,7 +43,7 @@ class ResultadoEntrada:
     tarifa_id: UUID | None
     valor: Decimal | None
     pase_vigente: bool
-
+    lectura_manual: bool
 
 class RegistrarEntradaUseCase:
     def __init__(self, db: Session, clock: Clock | None = None) -> None:
@@ -78,6 +78,14 @@ class RegistrarEntradaUseCase:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="La sede asociada al carril no existe.",
+            )
+        if not lectura_manual and confianza_lpr < settings.lpr_confidence_threshold:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Confianza de lectura por debajo del umbral configurado; "
+                    "se requiere lectura manual."
+                ),
             )
 
         try:
@@ -214,4 +222,5 @@ class RegistrarEntradaUseCase:
             tarifa_id=tarifa_id,
             valor=valor,
             pase_vigente=pase_vigente,
+            lectura_manual=lectura_manual,
         )

@@ -55,6 +55,7 @@ class EntradaResponse(BaseModel):
     tarifa_id: UUID | None
     valor: Decimal | None
     pase_vigente: bool
+    lectura_manual: bool
 
     model_config = ConfigDict(from_attributes=True)
 

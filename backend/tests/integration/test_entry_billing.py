@@ -668,7 +668,6 @@ def test_scenario_9_manual_plate_entry_is_persisted(
     assert entry.json()["cobro_creado"] is True
 
 
-@pytest.mark.xfail(strict=True, reason="Depende de HU-12")
 def test_low_confidence_automatic_read_requires_operator_validation(
     db_session: Session,
     operator_client: tuple[TestClient, dict[str, str]],
