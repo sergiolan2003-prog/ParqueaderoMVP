@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
+from app.core.clock import Clock, get_clock
 from app.core.config import settings
 from app.core.database import get_db
 from app.modules.accesos.application.entry import RegistrarEntradaUseCase
@@ -258,11 +259,12 @@ def registrar_entrada_simulada(
 def validar_salida(
     payload: SalidaRequest,
     db: Session = Depends(get_db),
+    clock: Clock = Depends(get_clock),
 ) -> SalidaResponse:
     """
     HU-07 Salida: La barrera no abre con deuda.
     """
-    caso_uso = ValidarSalidaVehiculoUseCase(db)
+    caso_uso = ValidarSalidaVehiculoUseCase(db, clock)
     resultado = caso_uso.ejecutar(
         placa=payload.placa, carril_id=payload.carril_id, foto_url=payload.foto_url
     )

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -6,12 +6,14 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.modules.pases.infrastructure import constraints
 
 
 class Pase(Base):
@@ -21,6 +23,7 @@ class Pase(Base):
             "vigente_hasta >= vigente_desde",
             name="vigencia_order",
         ),
+        UniqueConstraint("cobro_id", name=constraints.PASE_COBRO_UNIQUE),
         Index(
             "ix_pase_placa_sede_vigencia",
             "placa",
@@ -36,6 +39,11 @@ class Pase(Base):
         default=uuid4,
         server_default=func.gen_random_uuid(),
     )
+    cobro_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("cobro.id"),
+        nullable=True,
+    )
+    dia_operativo: Mapped[date | None] = mapped_column(nullable=True)
     placa: Mapped[str] = mapped_column(
         ForeignKey("vehiculo.placa"),
         nullable=False,

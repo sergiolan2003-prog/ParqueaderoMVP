@@ -117,6 +117,19 @@ docker compose run --rm api pytest
 docker compose run --rm api ruff check .
 ```
 
+### HU-10: escenarios y reglas críticas
+
+Con Docker Desktop activo y `.env` configurado, ejecuta desde la raíz:
+
+```powershell
+docker compose build api
+docker compose run --rm api pytest -v
+docker compose run --rm api ruff check .
+```
+
+La suite de integración usa PostgreSQL y mantiene como `xfail` estricto los
+flujos pendientes de HU-12 y la generación automática de cobro de S-05.
+
 Backend local, desde `backend/`:
 
 ```powershell
@@ -215,6 +228,12 @@ La cadena de validación aplica confianza, cupo y estado del pase en ese orden.
 El validador de cupo es no bloqueante hasta que se implemente HU-13. Consulta
 [docs/patron-chain-of-responsibility.md](docs/patron-chain-of-responsibility.md)
 para extenderla.
+
+### HU-11: pago efectivo y pase vigente
+
+El operador registra pagos idempotentes en `POST /pagos/efectivo`. El contrato,
+las reglas del State del cobro y la vigencia del pase se documentan en
+[docs/pagos-hu-11.md](docs/pagos-hu-11.md).
 
 ## Flujo Git y commits
 

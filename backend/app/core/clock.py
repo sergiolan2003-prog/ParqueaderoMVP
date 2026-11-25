@@ -26,3 +26,7 @@ class FixedClock:
 
     def now(self) -> datetime:
         return self.instant
+
+
+def get_clock() -> Clock:
+    return SystemClock()
