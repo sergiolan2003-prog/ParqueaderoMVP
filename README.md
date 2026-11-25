@@ -117,6 +117,19 @@ docker compose run --rm api pytest
 docker compose run --rm api ruff check .
 ```
 
+### HU-10: escenarios y reglas críticas
+
+Con Docker Desktop activo y `.env` configurado, ejecuta desde la raíz:
+
+```powershell
+docker compose build api
+docker compose run --rm api pytest -v
+docker compose run --rm api ruff check .
+```
+
+La suite de integración usa PostgreSQL y mantiene como `xfail` estricto los
+flujos pendientes de HU-11, HU-12 y la generación automática de cobro de S-05.
+
 Backend local, desde `backend/`:
 
 ```powershell
