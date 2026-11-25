@@ -58,6 +58,7 @@ class ResultadoEntrada:
     tarifa_id: UUID | None
     valor: Decimal | None
     pase_vigente: bool
+    lectura_manual: bool
 
 
 class RegistrarEntradaUseCase:
@@ -277,4 +278,5 @@ class RegistrarEntradaUseCase:
             tarifa_id=tarifa_id,
             valor=valor,
             pase_vigente=pase_vigente,
+            lectura_manual=lectura.lectura_manual,
         )
