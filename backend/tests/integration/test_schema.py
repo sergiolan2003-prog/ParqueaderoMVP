@@ -237,6 +237,12 @@ def test_duplicate_payment_reference_is_rejected_by_database_and_repository(
         with db_session.begin_nested():
             SqlAlchemyPagoRepository(db_session).add(duplicate_entity)
     assert isinstance(repository_error.value.__cause__, IntegrityError)
+    assert (
+        db_session.query(Pago)
+        .filter(Pago.referencia_pasarela == payment.referencia_pasarela)
+        .count()
+        == 1
+    )
 
 
 def test_required_tarifa_and_named_checks_and_uniqueness_are_enforced(
