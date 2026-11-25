@@ -250,6 +250,28 @@ de administración (`POST /tarifas/`) requieren `ADMINISTRADOR`. La salida
 rechaza vehículos no registrados y consulta la deuda pendiente del día
 operativo y sede asociados al carril.
 
+### Administración y consultas (HU-16 / PAR-17)
+
+Las rutas administrativas requieren un JWT con rol `ADMINISTRADOR`:
+
+- `GET /tarifas/` lista las versiones históricas y vigentes; acepta filtros
+  opcionales `sede_id`, `tipo_vehiculo` (`CARRO` o `MOTO`) y `franja`
+  (`DIURNA` o `NOCTURNA`). `POST /tarifas/` crea una tarifa o una nueva versión.
+  RN-02 exige que la tarifa diurna sea estrictamente mayor que la nocturna;
+  RN-07 cierra la vigencia anterior al día previo al inicio de la nueva.
+- `GET /sedes/` lista sedes para selección. `GET /sedes/{sede_id}/cupos`
+  consulta sus cupos y `PUT` en la misma ruta actualiza `cupos_carro` y
+  `cupos_moto`; ambos valores deben ser mayores o iguales a cero.
+- `GET /consultas/eventos` filtra eventos por `placa`, `desde` y `hasta`.
+  `GET /consultas/cobros` acepta esos filtros y `estado` (`PENDIENTE`,
+  `PAGADO`, `ANULADO` o `VENCIDO`). Las placas se normalizan a mayúsculas;
+  ambas consultas aceptan `page` (desde 1) y `page_size` (de 1 a 100), y
+  devuelven `items`, `total`, `page`, `page_size` y `total_pages`.
+
+Las fechas de eventos se interpretan en la zona horaria configurada para la
+operación; las fechas de cobros corresponden a `dia_operativo`. Un rango donde
+`desde` sea posterior a `hasta` se rechaza con HTTP 422.
+
 ## Ingreso de vehículos (HU-06)
 
 Las rutas de ingreso requieren el rol `OPERADOR` y registran el evento de
