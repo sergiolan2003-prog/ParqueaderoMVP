@@ -106,7 +106,7 @@ class RegistrarEntradaUseCase:
                 Pase.placa == placa_normalizada,
                 Pase.sede_id == sede.id,
                 Pase.vigente_desde <= ocurrido_en,
-                Pase.vigente_hasta >= ocurrido_en,
+                Pase.vigente_hasta > ocurrido_en,
             )
             .first()
             is not None

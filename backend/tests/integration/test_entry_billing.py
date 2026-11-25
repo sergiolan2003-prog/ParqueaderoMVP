@@ -25,8 +25,8 @@ from app.modules.accesos.infrastructure.models import (
 )
 from app.modules.auth.infrastructure.seed import seed_users
 from app.modules.cobros.infrastructure.models import Cobro
-from app.modules.pagos.domain.entities import Pago as PagoEntity
-from app.modules.pagos.infrastructure.repositories import SqlAlchemyPagoRepository
+from app.modules.pagos.application.services import RegistrarPagoEfectivoUseCase
+from app.modules.pagos.infrastructure.models import Pago
 from app.modules.pases.infrastructure.models import Pase
 from app.modules.tarifas.infrastructure.models import Tarifa
 
@@ -80,29 +80,19 @@ def _new_exit_lane(session: Session, sede: Sede) -> Carril:
 @pytest.fixture
 def prepare_paid_pass(
     db_session: Session,
-) -> Callable[[Cobro, datetime, datetime], Pase]:
-    """Seed a paid charge and pass until HU-11 provides a payment use case."""
+) -> Callable[[Cobro, datetime], Pase]:
+    """Pay through HU-11 and return the generated pass."""
 
-    def prepare(cobro: Cobro, starts_at: datetime, ends_at: datetime) -> Pase:
-        cobro.estado = "PAGADO"
-        SqlAlchemyPagoRepository(db_session).add(
-            PagoEntity(
-                id=uuid4(),
-                cobro_id=cobro.id,
-                medio="EFECTIVO",
-                valor=cobro.valor,
-                referencia_pasarela=f"hu10-{uuid4()}",
-                pagado_en=starts_at,
-            )
+    def prepare(cobro: Cobro, starts_at: datetime) -> Pase:
+        result = RegistrarPagoEfectivoUseCase(
+            db_session,
+            clock=FixedClock(starts_at),
+        ).ejecutar(
+            cobro_id=cobro.id,
+            referencia_pago=f"hu10-{uuid4()}",
         )
-        pase = Pase(
-            placa=cobro.placa,
-            sede_id=cobro.sede_id,
-            vigente_desde=starts_at,
-            vigente_hasta=ends_at,
-        )
-        db_session.add(pase)
-        db_session.flush()
+        pase = db_session.get(Pase, result.pase_id)
+        assert pase is not None
         return pase
 
     return prepare
@@ -478,7 +468,7 @@ def test_scenario_1_motorcycle_entry_and_exit_are_recorded_without_charge(
 def test_scenario_3_and_4_paid_car_reenters_without_a_second_charge(
     db_session: Session,
     operator_client: tuple[TestClient, dict[str, str]],
-    prepare_paid_pass: Callable[[Cobro, datetime, datetime], Pase],
+    prepare_paid_pass: Callable[[Cobro, datetime], Pase],
 ) -> None:
     client, headers = operator_client
     sede, entry_lane = _new_sede(db_session, "Escenarios34")
@@ -490,11 +480,7 @@ def test_scenario_3_and_4_paid_car_reenters_without_a_second_charge(
     assert first_entry.status_code == 201
     cobro = db_session.get(Cobro, UUID(first_entry.json()["cobro_id"]))
     assert cobro is not None
-    prepare_paid_pass(
-        cobro,
-        first_entry_at,
-        datetime(2026, 3, 10, 18, 0, tzinfo=LOCAL_ZONE),
-    )
+    prepare_paid_pass(cobro, first_entry_at)
 
     exit_result = ValidarSalidaVehiculoUseCase(
         db_session,
@@ -520,7 +506,7 @@ def test_scenario_3_and_4_paid_car_reenters_without_a_second_charge(
     assert reentry_15.json()["pase_vigente"] is True
     assert reentry_15.json()["cobro_creado"] is False
     assert reentry_22.status_code == 201
-    assert reentry_22.json()["pase_vigente"] is False
+    assert reentry_22.json()["pase_vigente"] is True
     assert reentry_22.json()["cobro_creado"] is False
     assert (
         db_session.query(EventoAcceso)
@@ -539,7 +525,7 @@ def test_scenario_3_and_4_paid_car_reenters_without_a_second_charge(
 def test_scenario_6_late_night_entry_and_early_exit_keep_one_charge(
     db_session: Session,
     operator_client: tuple[TestClient, dict[str, str]],
-    prepare_paid_pass: Callable[[Cobro, datetime, datetime], Pase],
+    prepare_paid_pass: Callable[[Cobro, datetime], Pase],
 ) -> None:
     client, headers = operator_client
     sede, entry_lane = _new_sede(db_session, "Escenario6")
@@ -553,11 +539,7 @@ def test_scenario_6_late_night_entry_and_early_exit_keep_one_charge(
 
     cobro = db_session.get(Cobro, UUID(entry.json()["cobro_id"]))
     assert cobro is not None
-    prepare_paid_pass(
-        cobro,
-        entry_at,
-        datetime(2026, 3, 11, 6, 0, tzinfo=LOCAL_ZONE),
-    )
+    prepare_paid_pass(cobro, entry_at)
     exit_result = ValidarSalidaVehiculoUseCase(
         db_session,
         clock=FixedClock(datetime(2026, 3, 11, 1, 0, tzinfo=LOCAL_ZONE)),
@@ -588,7 +570,7 @@ def test_scenario_6_late_night_entry_and_early_exit_keep_one_charge(
 def test_scenario_7_generates_daytime_charge_while_vehicle_stays_inside(
     db_session: Session,
     operator_client: tuple[TestClient, dict[str, str]],
-    prepare_paid_pass: Callable[[Cobro, datetime, datetime], Pase],
+    prepare_paid_pass: Callable[[Cobro, datetime], Pase],
 ) -> None:
     client, headers = operator_client
     sede, entry_lane = _new_sede(db_session, "Escenario7")
@@ -601,11 +583,7 @@ def test_scenario_7_generates_daytime_charge_while_vehicle_stays_inside(
     assert entry.json()["franja"] == "NOCTURNA"
     cobro = db_session.get(Cobro, UUID(entry.json()["cobro_id"]))
     assert cobro is not None
-    prepare_paid_pass(
-        cobro,
-        entry_at,
-        datetime(2026, 3, 10, 6, 0, tzinfo=LOCAL_ZONE),
-    )
+    prepare_paid_pass(cobro, entry_at)
 
     exit_result = ValidarSalidaVehiculoUseCase(
         db_session,
@@ -630,7 +608,7 @@ def test_scenario_7_generates_daytime_charge_while_vehicle_stays_inside(
 def test_scenario_8_monday_pass_does_not_prevent_tuesday_daytime_charge(
     db_session: Session,
     operator_client: tuple[TestClient, dict[str, str]],
-    prepare_paid_pass: Callable[[Cobro, datetime, datetime], Pase],
+    prepare_paid_pass: Callable[[Cobro, datetime], Pase],
 ) -> None:
     client, headers = operator_client
     sede, entry_lane = _new_sede(db_session, "Escenario8")
@@ -642,11 +620,7 @@ def test_scenario_8_monday_pass_does_not_prevent_tuesday_daytime_charge(
     assert monday_entry.json()["franja"] == "NOCTURNA"
     monday_charge = db_session.get(Cobro, UUID(monday_entry.json()["cobro_id"]))
     assert monday_charge is not None
-    prepare_paid_pass(
-        monday_charge,
-        monday_entry_at,
-        datetime(2026, 3, 10, 6, 0, tzinfo=LOCAL_ZONE),
-    )
+    prepare_paid_pass(monday_charge, monday_entry_at)
 
     tuesday_entry = _entry(
         client,
@@ -716,9 +690,39 @@ def test_low_confidence_automatic_read_requires_operator_validation(
     assert response.status_code != 201
 
 
-@pytest.mark.xfail(strict=True, reason="Depende de HU-11")
-def test_confirming_same_payment_twice_is_idempotent_through_use_case() -> None:
-    pytest.fail(
-        "HU-11 aún no proporciona un caso de uso para confirmar pagos; "
-        "la cobertura actual solo alcanza el repositorio."
+def test_confirming_same_payment_twice_is_idempotent_through_use_case(
+    db_session: Session,
+    operator_client: tuple[TestClient, dict[str, str]],
+) -> None:
+    client, headers = operator_client
+    sede, entry_lane = _new_sede(db_session, "PagoIdempotente")
+    _add_standard_tariffs(db_session, sede)
+    entry_at = datetime(2026, 3, 10, 8, 0, tzinfo=LOCAL_ZONE)
+    entry = _entry(client, headers, entry_lane, "ABC123", entry_at)
+    assert entry.status_code == 201
+    cobro_id = UUID(entry.json()["cobro_id"])
+    referencia = f"hu11-{uuid4()}"
+    use_case = RegistrarPagoEfectivoUseCase(
+        db_session,
+        clock=FixedClock(entry_at),
+    )
+    first = use_case.ejecutar(cobro_id, referencia)
+    repeated = use_case.ejecutar(cobro_id, referencia)
+
+    assert first.pago_id == repeated.pago_id
+    assert first.pase_id == repeated.pase_id
+    assert first.repetido is False
+    assert repeated.repetido is True
+    assert db_session.get(Cobro, cobro_id).valor == first.valor_pagado
+    assert (
+        db_session.query(Pago)
+        .filter(Pago.cobro_id == cobro_id)
+        .count()
+        == 1
+    )
+    assert (
+        db_session.query(Pase)
+        .filter(Pase.cobro_id == cobro_id)
+        .count()
+        == 1
     )
