@@ -150,8 +150,31 @@ npm run build
 ```
 
 La prueba de salud valida `GET /health` y la respuesta `{"status": "ok"}`.
-El frontend tiene una prueba Vitest que verifica la consulta y visualización
-del estado de la API.
+Las pruebas Vitest cubren el cliente HTTP, el contrato de autenticación y la
+visualización del estado de la API. El cliente conserva el JWT solo en memoria;
+al recargar la página se requiere iniciar sesión de nuevo.
+
+Para validar la comunicación real a través de los proxies, con Docker Compose
+activo, frontend disponible en `http://localhost:5173` y credenciales de un
+operador de prueba configuradas como variables de entorno en la sesión:
+
+```powershell
+$env:INTEGRATION_OPERATOR_USERNAME = "<usuario operador>"
+# Define INTEGRATION_OPERATOR_PASSWORD mediante el mecanismo seguro de tu entorno.
+npm.cmd run test:integration
+```
+
+La prueba verifica `/health`, login, usuario autenticado, autorización por rol
+y la validación real de las rutas existentes de entrada, pago y salida. No crea
+entradas ni pagos. No imprime el token ni los valores de credenciales. Para
+ejecutarla contra otro origen del frontend, define `FRONTEND_BASE_URL`.
+
+En ejecución local de Vite, `VITE_API_BASE_URL` queda vacío para usar rutas
+relativas y `API_PROXY_TARGET` apunta al backend, por defecto
+`http://localhost:8000`. En Docker Compose, el frontend se sirve por Nginx y
+este reenvía las rutas API al servicio `api:8000`; dentro del contenedor no se
+usa `localhost` para localizar el backend. Si se configura `VITE_API_BASE_URL`
+con un origen distinto, ese servidor debe permitir CORS para el frontend.
 
 ## Variables de entorno
 
@@ -176,6 +199,8 @@ documenta todas las variables requeridas:
 | `JWT_EXPIRE_MINUTES` | Duración del token en minutos, por defecto `60` |
 | `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD` | Credenciales iniciales del administrador |
 | `SEED_OPERADOR_USERNAME` / `SEED_OPERADOR_PASSWORD` | Credenciales iniciales del operador |
+| `VITE_API_BASE_URL` | URL base del cliente frontend; vacía usa el proxy del mismo origen |
+| `API_PROXY_TARGET` | Destino de FastAPI para el proxy de Vite en desarrollo local |
 
 Compose valida las variables obligatorias y nombra la variable faltante. La
 configuración de la API también valida sus valores requeridos al iniciar.
