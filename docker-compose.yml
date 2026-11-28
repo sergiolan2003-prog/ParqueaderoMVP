@@ -34,6 +34,9 @@ services:
       NIGHTTIME_END: ${NIGHTTIME_END:?Define NIGHTTIME_END en .env}
       OPERATING_TIMEZONE: ${OPERATING_TIMEZONE:?Define OPERATING_TIMEZONE en .env}
       LPR_CONFIDENCE_THRESHOLD: ${LPR_CONFIDENCE_THRESHOLD:?Define LPR_CONFIDENCE_THRESHOLD en .env}
+      LPR_READER_TYPE: ${LPR_READER_TYPE:?Define LPR_READER_TYPE en .env}
+      LPR_IMAGE_STORAGE_PATH: ${LPR_IMAGE_STORAGE_PATH:?Define LPR_IMAGE_STORAGE_PATH en .env}
+      LPR_IMAGE_MAX_BYTES: ${LPR_IMAGE_MAX_BYTES:?Define LPR_IMAGE_MAX_BYTES en .env}
       JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en .env}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
@@ -46,6 +49,8 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - plate_images:/app/storage/placas
     healthcheck:
       test:
         [
@@ -72,3 +77,4 @@ services:
 
 volumes:
   postgres_data:
+  plate_images:

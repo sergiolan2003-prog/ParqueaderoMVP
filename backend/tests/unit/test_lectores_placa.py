@@ -2,6 +2,7 @@ import re
 from random import Random
 
 from app.modules.accesos.domain.lectores import (
+    LectorImagenSimulado,
     LectorManual,
     LectorPlaca,
     LectorSimulado,
@@ -36,3 +37,25 @@ def test_manual_reader_returns_full_confidence_and_manual_flag() -> None:
         confianza=1.0,
         lectura_manual=True,
     )
+
+
+def test_image_reader_uses_filename_plate_and_confidence() -> None:
+    result = LectorImagenSimulado("ABC123_0.92.jpg").leer()
+
+    assert result == LecturaPlaca(placa="ABC123", confianza=0.92)
+
+
+def test_image_reader_overrides_filename_values() -> None:
+    result = LectorImagenSimulado(
+        "ABC123_0.92.jpg",
+        placa_simulada="XYZ789",
+        confianza_simulada=0.40,
+    ).leer()
+
+    assert result == LecturaPlaca(placa="XYZ789", confianza=0.40)
+
+
+def test_image_reader_normalizes_plate_with_spaces_or_hyphens() -> None:
+    result = LectorImagenSimulado("abc-123_0.95.jpg").leer()
+
+    assert result == LecturaPlaca(placa="ABC123", confianza=0.95)

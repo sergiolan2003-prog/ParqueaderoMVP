@@ -83,101 +83,170 @@ export default function ConfigurationPage() {
   }
 
   if (loading) {
-    return <p role="status">Cargando configuración operativa...</p>;
+    return (
+      <div className="surface-card">
+        <p role="status" className="muted" style={{ margin: 0 }}>
+          Cargando configuración operativa...
+        </p>
+      </div>
+    );
   }
 
   return (
     <div className="page-content">
-      <div>
-        <p className="eyebrow">Parámetros globales</p>
-        <h2 id="configuration-heading">Configuración operativa</h2>
-        <p className="muted">
-          Define los horarios de las franjas y la confianza mínima para lecturas
-          automáticas de placas.
-        </p>
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow eyebrow-accent">Parámetros globales</p>
+          <h2 id="configuration-heading">Configuración operativa</h2>
+          <p className="muted">
+            Define los horarios de las franjas y la confianza mínima para
+            lecturas automáticas de placas.
+          </p>
+        </div>
+        <span className="status-badge badge-warning">Parámetros del sistema</span>
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}
       {success && <Alert variant="success">{success}</Alert>}
 
       {form && (
-        <form className="stack-form" onSubmit={saveConfiguration}>
-          <div className="section-heading">
-            <div>
-              <h3>Franjas horarias</h3>
-              <p className="muted">
-                Las franjas deben cubrir el día completo, sin cruces ni espacios.
-              </p>
-            </div>
-          </div>
-          <div className="form-grid">
-            <Field htmlFor="daytime-start" label="Inicio de franja diurna">
-              <input
-                id="daytime-start"
-                name="daytime_start"
-                onChange={updateField}
-                required
-                type="time"
-                value={form.daytime_start}
-              />
-            </Field>
-            <Field htmlFor="daytime-end" label="Fin de franja diurna">
-              <input
-                id="daytime-end"
-                name="daytime_end"
-                onChange={updateField}
-                required
-                type="time"
-                value={form.daytime_end}
-              />
-            </Field>
-            <Field htmlFor="nighttime-start" label="Inicio de franja nocturna">
-              <input
-                id="nighttime-start"
-                name="nighttime_start"
-                onChange={updateField}
-                required
-                type="time"
-                value={form.nighttime_start}
-              />
-            </Field>
-            <Field htmlFor="nighttime-end" label="Fin de franja nocturna">
-              <input
-                id="nighttime-end"
-                name="nighttime_end"
-                onChange={updateField}
-                required
-                type="time"
-                value={form.nighttime_end}
-              />
-            </Field>
-          </div>
+        <form className="page-content" onSubmit={saveConfiguration}>
+          <div className="two-col-asymmetric">
+            <section className="surface-card">
+              <div className="surface-card-header">
+                <div>
+                  <h3>Franjas horarias</h3>
+                  <p className="muted">
+                    Las franjas deben cubrir el día completo, sin cruces ni
+                    espacios.
+                  </p>
+                </div>
+              </div>
 
-          <div className="subsection">
-            <h3>Reconocimiento de placas (LPR)</h3>
-            <div className="form-grid">
-              <Field
-                hint="Valor entre 0 y 1; por ejemplo, 0.8 equivale al 80%."
-                htmlFor="lpr-confidence-threshold"
-                label="Umbral de confianza LPR"
+              <div className="form-grid" style={{ marginBottom: "1.5rem" }}>
+                <Field htmlFor="daytime-start" label="Inicio de franja diurna">
+                  <input
+                    id="daytime-start"
+                    name="daytime_start"
+                    onChange={updateField}
+                    required
+                    type="time"
+                    value={form.daytime_start}
+                  />
+                </Field>
+                <Field htmlFor="daytime-end" label="Fin de franja diurna">
+                  <input
+                    id="daytime-end"
+                    name="daytime_end"
+                    onChange={updateField}
+                    required
+                    type="time"
+                    value={form.daytime_end}
+                  />
+                </Field>
+                <Field
+                  htmlFor="nighttime-start"
+                  label="Inicio de franja nocturna"
+                >
+                  <input
+                    id="nighttime-start"
+                    name="nighttime_start"
+                    onChange={updateField}
+                    required
+                    type="time"
+                    value={form.nighttime_start}
+                  />
+                </Field>
+                <Field htmlFor="nighttime-end" label="Fin de franja nocturna">
+                  <input
+                    id="nighttime-end"
+                    name="nighttime_end"
+                    onChange={updateField}
+                    required
+                    type="time"
+                    value={form.nighttime_end}
+                  />
+                </Field>
+              </div>
+
+              <div
+                style={{
+                  paddingTop: "1.25rem",
+                  borderTop: "1px solid var(--color-border)",
+                }}
               >
-                <input
-                  id="lpr-confidence-threshold"
-                  max="1"
-                  min="0"
-                  name="lpr_confidence_threshold"
-                  onChange={updateField}
-                  required
-                  step="0.01"
-                  type="number"
-                  value={form.lpr_confidence_threshold}
-                />
-              </Field>
-            </div>
+                <div className="surface-card-header">
+                  <div>
+                    <h3>Reconocimiento de placas (LPR)</h3>
+                    <p className="muted">
+                      Controla el umbral mínimo para autorizar la lectura
+                      automática sin intervención manual.
+                    </p>
+                  </div>
+                </div>
+                <div className="form-grid">
+                  <Field
+                    hint="Valor entre 0 y 1; por ejemplo, 0.8 equivale al 80%."
+                    htmlFor="lpr-confidence-threshold"
+                    label="Umbral de confianza LPR"
+                  >
+                    <input
+                      id="lpr-confidence-threshold"
+                      max="1"
+                      min="0"
+                      name="lpr_confidence_threshold"
+                      onChange={updateField}
+                      required
+                      step="0.01"
+                      type="number"
+                      value={form.lpr_confidence_threshold}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </section>
+
+            <aside className="side-stack">
+              <div className="rules-card">
+                <p className="eyebrow">Criterios de validación</p>
+                <h3>Reglas operativas</h3>
+                <ul className="rules-list">
+                  <li>
+                    <span className="rules-bullet" aria-hidden="true" />
+                    <span>
+                      El fin de la franja diurna debe coincidir con el inicio de
+                      la franja nocturna.
+                    </span>
+                  </li>
+                  <li>
+                    <span className="rules-bullet" aria-hidden="true" />
+                    <span>
+                      Lecturas con confianza inferior al umbral LPR solicitan
+                      confirmación manual en el carril.
+                    </span>
+                  </li>
+                  <li>
+                    <span className="rules-bullet" aria-hidden="true" />
+                    <span>
+                      Los cambios aplican inmediatamente a los nuevos eventos
+                      registrados.
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </aside>
           </div>
 
-          <div className="form-actions">
-            <button className="button button-primary" disabled={saving} type="submit">
+          <div className="action-footer-card">
+            <p className="action-footer-note">
+              Verifica que las franjas cubran las 24 horas antes de guardar los
+              cambios.
+            </p>
+            <button
+              className="button button-primary"
+              disabled={saving}
+              type="submit"
+            >
               {saving ? "Guardando..." : "Guardar configuración"}
             </button>
           </div>

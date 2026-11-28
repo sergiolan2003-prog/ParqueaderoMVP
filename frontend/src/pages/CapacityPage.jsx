@@ -110,79 +110,134 @@ export default function CapacityPage() {
   }
 
   const selectedSite = sedes.find((site) => site.id === sedeId);
+  const totalCupos =
+    (Number(cupos.cupos_carro) || 0) + (Number(cupos.cupos_moto) || 0);
 
   return (
     <div className="page-content">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Capacidad operativa</p>
-          <h2>Cupos por sede</h2>
-          <p className="muted">
-            Consulta y actualiza la capacidad disponible para cada tipo de vehículo.
-          </p>
-        </div>
-      </div>
-
       {error && <Alert variant="error">{error}</Alert>}
       {success && <Alert variant="success">{success}</Alert>}
 
       {sedes.length === 0 ? (
-        <Alert>No hay sedes disponibles para administrar.</Alert>
+        <div className="surface-card">
+          <Alert>No hay sedes disponibles para administrar.</Alert>
+        </div>
       ) : (
-        <section className="subsection">
-          <Field label="Sede" htmlFor="capacity-site">
-            <select
-              id="capacity-site"
-              onChange={(event) => {
-                setSedeId(event.target.value);
-                setSuccess("");
-              }}
-              value={sedeId}
-            >
-              {sedes.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.nombre}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <form className="form-grid capacity-form" onSubmit={submit}>
-            <Field label="Cupos para carros" htmlFor="capacity-cars">
-              <input
-                id="capacity-cars"
-                min="0"
-                name="cupos_carro"
-                onChange={updateValue}
-                required
-                step="1"
-                type="number"
-                value={cupos.cupos_carro}
-              />
-            </Field>
-            <Field label="Cupos para motos" htmlFor="capacity-motos">
-              <input
-                id="capacity-motos"
-                min="0"
-                name="cupos_moto"
-                onChange={updateValue}
-                required
-                step="1"
-                type="number"
-                value={cupos.cupos_moto}
-              />
-            </Field>
-            <div className="form-actions">
-              <button
-                className="button button-primary"
-                disabled={loading || !selectedSite}
-                type="submit"
-              >
-                {loading ? "Guardando..." : "Guardar cupos"}
-              </button>
+        <div className="two-col-asymmetric">
+          <section className="surface-card">
+            <div className="surface-card-header">
+              <div>
+                <p className="eyebrow eyebrow-accent">Capacidad operativa</p>
+                <h2>Cupos por sede</h2>
+                <p className="muted">
+                  Consulta y actualiza la capacidad disponible para cada tipo de
+                  vehículo.
+                </p>
+              </div>
+              {selectedSite && (
+                <span className="status-badge badge-neutral">
+                  {selectedSite.nombre}
+                </span>
+              )}
             </div>
-          </form>
-        </section>
+
+            <div className="capacity-grid">
+              <div className="metric-tile">
+                <p className="metric-tile-label">Cupos carros</p>
+                <p className="metric-tile-value tabular-nums">
+                  {cupos.cupos_carro || 0}
+                </p>
+              </div>
+              <div className="metric-tile">
+                <p className="metric-tile-label">Cupos motos</p>
+                <p className="metric-tile-value tabular-nums">
+                  {cupos.cupos_moto || 0}
+                </p>
+              </div>
+              <div className="metric-tile">
+                <p className="metric-tile-label">Capacidad total</p>
+                <p className="metric-tile-value tabular-nums">{totalCupos}</p>
+              </div>
+            </div>
+
+            <form className="stack-form" onSubmit={submit}>
+              <Field label="Sede" htmlFor="capacity-site">
+                <select
+                  id="capacity-site"
+                  onChange={(event) => {
+                    setSedeId(event.target.value);
+                    setSuccess("");
+                  }}
+                  value={sedeId}
+                >
+                  {sedes.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.nombre}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <div className="form-grid">
+                <Field label="Cupos para carros" htmlFor="capacity-cars">
+                  <input
+                    id="capacity-cars"
+                    min="0"
+                    name="cupos_carro"
+                    onChange={updateValue}
+                    required
+                    step="1"
+                    type="number"
+                    value={cupos.cupos_carro}
+                  />
+                </Field>
+                <Field label="Cupos para motos" htmlFor="capacity-motos">
+                  <input
+                    id="capacity-motos"
+                    min="0"
+                    name="cupos_moto"
+                    onChange={updateValue}
+                    required
+                    step="1"
+                    type="number"
+                    value={cupos.cupos_moto}
+                  />
+                </Field>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  className="button button-primary"
+                  disabled={loading || !selectedSite}
+                  type="submit"
+                >
+                  {loading ? "Guardando..." : "Guardar cupos"}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <aside className="rules-card">
+            <p className="eyebrow">Control de aforo</p>
+            <h3>Comportamiento en carril</h3>
+            <ul className="rules-list">
+              <li>
+                <span className="rules-bullet" aria-hidden="true" />
+                <span>
+                  Los ingresos de cada categoría se validan en tiempo real
+                  contra el límite configurado.
+                </span>
+              </li>
+              <li>
+                <span className="rules-bullet" aria-hidden="true" />
+                <span>
+                  Cuando una sede alcanza su capacidad máxima, el panel de
+                  operación activa el estado LLENO y bloquea nuevos ingresos.
+                </span>
+              </li>
+            </ul>
+          </aside>
+        </div>
       )}
     </div>
   );

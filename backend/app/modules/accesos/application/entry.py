@@ -60,6 +60,8 @@ class ResultadoEntrada:
     valor: Decimal | None
     pase_vigente: bool
     lectura_manual: bool
+    confianza_lpr: float
+    foto_url: str | None
 
 
 class RegistrarEntradaUseCase:
@@ -320,4 +322,6 @@ class RegistrarEntradaUseCase:
             valor=valor,
             pase_vigente=pase_vigente,
             lectura_manual=lectura.lectura_manual,
+            confianza_lpr=lectura.confianza,
+            foto_url=foto_url,
         )

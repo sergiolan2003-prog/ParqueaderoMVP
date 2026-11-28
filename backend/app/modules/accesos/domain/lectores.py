@@ -1,7 +1,11 @@
+import re
 from dataclasses import dataclass
 from random import Random
 from string import ascii_uppercase
 from typing import Protocol
+
+from app.modules.accesos.domain.exceptions import NombreImagenInvalidoError
+from app.modules.accesos.domain.placa import ClasificadorPlaca
 
 
 @dataclass(frozen=True)
@@ -56,3 +60,39 @@ class LectorManual:
             confianza=1.0,
             lectura_manual=True,
         )
+
+
+class LectorImagenSimulado:
+    def __init__(
+        self,
+        nombre_archivo: str,
+        placa_simulada: str | None = None,
+        confianza_simulada: float | None = None,
+    ) -> None:
+        self._nombre_archivo = nombre_archivo
+        self._placa_simulada = placa_simulada
+        self._confianza_simulada = confianza_simulada
+
+    def leer(self) -> LecturaPlaca:
+        coincidencia = re.fullmatch(
+            r"([A-Za-z0-9 -]+)_([0-9]+(?:\.[0-9]+)?)\.([A-Za-z0-9]+)",
+            self._nombre_archivo,
+        )
+        if coincidencia is None:
+            raise NombreImagenInvalidoError()
+
+        placa_bruta = (
+            self._placa_simulada
+            if self._placa_simulada is not None
+            else coincidencia.group(1)
+        )
+        confianza = (
+            self._confianza_simulada
+            if self._confianza_simulada is not None
+            else float(coincidencia.group(2))
+        )
+        placa = ClasificadorPlaca.normalizar(placa_bruta)
+        ClasificadorPlaca.clasificar(placa)
+        if not 0 <= confianza <= 1:
+            raise NombreImagenInvalidoError()
+        return LecturaPlaca(placa=placa, confianza=confianza)

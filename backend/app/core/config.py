@@ -25,6 +25,17 @@ class Settings(BaseSettings):
         ge=0,
         le=1,
     )
+    lpr_reader_type: str = Field(
+        default="SIMULADO",
+        validation_alias="LPR_READER_TYPE",
+    )
+    lpr_image_storage_path: str = Field(
+        validation_alias="LPR_IMAGE_STORAGE_PATH",
+    )
+    lpr_image_max_bytes: int = Field(
+        validation_alias="LPR_IMAGE_MAX_BYTES",
+        gt=0,
+    )
     jwt_secret: str = Field(
         validation_alias="JWT_SECRET",
         min_length=32,

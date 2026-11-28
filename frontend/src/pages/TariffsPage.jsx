@@ -167,14 +167,28 @@ export default function TariffsPage() {
     },
     { key: "tipo_vehiculo", label: "Vehículo" },
     { key: "franja", label: "Franja" },
-    { key: "valor", label: "Valor", render: (tarifa) => formatCurrency(tarifa.valor) },
-    { key: "vigente_desde", label: "Desde" },
+    {
+      key: "valor",
+      label: "Valor",
+      render: (tarifa) => (
+        <span className="tabular-nums" style={{ fontWeight: 700 }}>
+          {formatCurrency(tarifa.valor)}
+        </span>
+      ),
+    },
+    {
+      key: "vigente_desde",
+      label: "Desde",
+      render: (tarifa) => (
+        <span className="tabular-nums">{tarifa.vigente_desde}</span>
+      ),
+    },
     {
       key: "vigente_hasta",
       label: "Vigencia",
       render: (tarifa) =>
         tarifa.vigente_hasta ? (
-          tarifa.vigente_hasta
+          <span className="tabular-nums">{tarifa.vigente_hasta}</span>
         ) : (
           <StatusBadge status="VIGENTE" />
         ),
@@ -199,125 +213,166 @@ export default function TariffsPage() {
 
   return (
     <div className="page-content">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Reglas de cobro</p>
-          <h2>Tarifas</h2>
-          <p className="muted">
-            Cada cambio genera una versión nueva y conserva la vigencia anterior.
-          </p>
-        </div>
-      </div>
-
       {error && <Alert variant="error">{error}</Alert>}
       {success && <Alert variant="success">{success}</Alert>}
 
-      <section className="subsection" aria-labelledby="tariff-form-title">
-        <h3 id="tariff-form-title">
-          {isVersion ? "Crear nueva versión" : "Registrar tarifa"}
-        </h3>
-        <form className="form-grid" onSubmit={submitTariff}>
-          <Field label="Sede" htmlFor="tariff-site">
-            <select
-              id="tariff-site"
-              name="sede_id"
-              onChange={updateForm}
-              required
-              value={form.sede_id}
-            >
-              <option value="">Selecciona una sede</option>
-              {sedes.map((sede) => (
-                <option key={sede.id} value={sede.id}>
-                  {sede.nombre}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Tipo de vehículo" htmlFor="tariff-vehicle">
-            <select
-              id="tariff-vehicle"
-              name="tipo_vehiculo"
-              onChange={updateForm}
-              value={form.tipo_vehiculo}
-            >
-              <option value="CARRO">Carro</option>
-              <option value="MOTO">Moto</option>
-            </select>
-          </Field>
-          <Field label="Franja" htmlFor="tariff-band">
-            <select
-              id="tariff-band"
-              name="franja"
-              onChange={updateForm}
-              value={form.franja}
-            >
-              <option value="DIURNA">Diurna</option>
-              <option value="NOCTURNA">Nocturna</option>
-            </select>
-          </Field>
-          <Field label="Valor (COP)" htmlFor="tariff-value">
-            <input
-              id="tariff-value"
-              min="0"
-              name="valor"
-              onChange={updateForm}
-              required
-              step="0.01"
-              type="number"
-              value={form.valor}
-            />
-          </Field>
-          <Field label="Vigente desde" htmlFor="tariff-start">
-            <input
-              id="tariff-start"
-              name="vigente_desde"
-              onChange={updateForm}
-              required
-              type="date"
-              value={form.vigente_desde}
-            />
-          </Field>
-          <Field label="Vigente hasta (opcional)" htmlFor="tariff-end">
-            <input
-              id="tariff-end"
-              name="vigente_hasta"
-              onChange={updateForm}
-              type="date"
-              value={form.vigente_hasta}
-            />
-          </Field>
-          <div className="form-actions">
-            <button
-              className="button button-primary"
-              disabled={loading || sedes.length === 0}
-              type="submit"
-            >
-              {loading ? "Guardando..." : isVersion ? "Guardar versión" : "Crear tarifa"}
-            </button>
-            {isVersion && (
-              <button
-                className="button button-quiet"
-                onClick={() => {
-                  setIsVersion(false);
-                  setForm(emptyForm(form.sede_id));
-                }}
-                type="button"
-              >
-                Cancelar edición
-              </button>
-            )}
+      <div className="two-col-asymmetric">
+        <section className="surface-card" aria-labelledby="tariff-form-title">
+          <div className="surface-card-header">
+            <div>
+              <p className="eyebrow eyebrow-accent">Reglas de cobro</p>
+              <h2 id="tariff-form-title">
+                {isVersion ? "Crear nueva versión" : "Registrar tarifa"}
+              </h2>
+              <p className="muted">
+                Cada cambio genera una versión nueva y conserva la vigencia
+                anterior.
+              </p>
+            </div>
+            {isVersion && <span className="status-badge badge-warning">Editando versión</span>}
           </div>
-        </form>
-      </section>
 
-      <section className="subsection" aria-labelledby="tariff-list-title">
-        <div className="section-heading">
+          <form className="form-grid" onSubmit={submitTariff}>
+            <Field label="Sede" htmlFor="tariff-site">
+              <select
+                id="tariff-site"
+                name="sede_id"
+                onChange={updateForm}
+                required
+                value={form.sede_id}
+              >
+                <option value="">Selecciona una sede</option>
+                {sedes.map((sede) => (
+                  <option key={sede.id} value={sede.id}>
+                    {sede.nombre}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Tipo de vehículo" htmlFor="tariff-vehicle">
+              <select
+                id="tariff-vehicle"
+                name="tipo_vehiculo"
+                onChange={updateForm}
+                value={form.tipo_vehiculo}
+              >
+                <option value="CARRO">Carro</option>
+                <option value="MOTO">Moto</option>
+              </select>
+            </Field>
+            <Field label="Franja" htmlFor="tariff-band">
+              <select
+                id="tariff-band"
+                name="franja"
+                onChange={updateForm}
+                value={form.franja}
+              >
+                <option value="DIURNA">Diurna</option>
+                <option value="NOCTURNA">Nocturna</option>
+              </select>
+            </Field>
+            <Field label="Valor (COP)" htmlFor="tariff-value">
+              <input
+                id="tariff-value"
+                min="0"
+                name="valor"
+                onChange={updateForm}
+                placeholder="12000"
+                required
+                step="0.01"
+                type="number"
+                value={form.valor}
+              />
+            </Field>
+            <Field label="Vigente desde" htmlFor="tariff-start">
+              <input
+                id="tariff-start"
+                name="vigente_desde"
+                onChange={updateForm}
+                required
+                type="date"
+                value={form.vigente_desde}
+              />
+            </Field>
+            <Field label="Vigente hasta (opcional)" htmlFor="tariff-end">
+              <input
+                id="tariff-end"
+                name="vigente_hasta"
+                onChange={updateForm}
+                type="date"
+                value={form.vigente_hasta}
+              />
+            </Field>
+            <div className="form-actions">
+              <button
+                className="button button-primary"
+                disabled={loading || sedes.length === 0}
+                type="submit"
+              >
+                {loading
+                  ? "Guardando..."
+                  : isVersion
+                    ? "Guardar versión"
+                    : "Crear tarifa"}
+              </button>
+              {isVersion && (
+                <button
+                  className="button button-secondary"
+                  onClick={() => {
+                    setIsVersion(false);
+                    setForm(emptyForm(form.sede_id));
+                  }}
+                  type="button"
+                >
+                  Cancelar edición
+                </button>
+              )}
+            </div>
+          </form>
+        </section>
+
+        <aside className="rules-card">
+          <p className="eyebrow">Control normativo</p>
+          <h3>Reglas de vigencia</h3>
+          <ul className="rules-list">
+            <li>
+              <span className="rules-bullet" aria-hidden="true" />
+              <span>
+                RN-02: La tarifa nocturna debe ser estrictamente menor que la
+                diurna vigente para la misma sede y vehículo.
+              </span>
+            </li>
+            <li>
+              <span className="rules-bullet" aria-hidden="true" />
+              <span>
+                Las versiones anteriores se preservan automáticamente para
+                auditoría histórica.
+              </span>
+            </li>
+            <li>
+              <span className="rules-bullet" aria-hidden="true" />
+              <span>
+                Deja vacía la fecha final para mantener la tarifa como vigente.
+              </span>
+            </li>
+          </ul>
+        </aside>
+      </div>
+
+      <section className="surface-card" aria-labelledby="tariff-list-title">
+        <div className="surface-card-header">
           <div>
             <h3 id="tariff-list-title">Historial de tarifas</h3>
-            <p className="muted">Filtra las tarifas por sede, vehículo o franja.</p>
+            <p className="muted">
+              Filtra las tarifas por sede, vehículo o franja horaria.
+            </p>
           </div>
+          <span className="status-badge badge-neutral tabular-nums">
+            {tarifas.length} registros
+          </span>
         </div>
-        <div className="filter-grid">
+
+        <div className="filter-grid" style={{ marginBottom: "1rem" }}>
           <Field label="Sede" htmlFor="filter-site">
             <select
               id="filter-site"
@@ -358,6 +413,7 @@ export default function TariffsPage() {
             </select>
           </Field>
         </div>
+
         <DataTable
           columns={columns}
           emptyMessage={loading ? "Cargando tarifas..." : undefined}

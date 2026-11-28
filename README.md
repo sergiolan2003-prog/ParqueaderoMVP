@@ -309,6 +309,24 @@ El validador de cupo es no bloqueante hasta que se implemente HU-13. Consulta
 [docs/patron-chain-of-responsibility.md](docs/patron-chain-of-responsibility.md)
 para extenderla.
 
+### Ingreso por imagen (HU-27)
+
+`POST /accesos/entrada/imagen` recibe multipart/form-data con los campos
+`imagen` y `carril_id`. También acepta `placa_simulada` y
+`confianza_simulada`; ambos tienen prioridad sobre los datos inferidos del
+nombre del archivo.
+El panel obtiene los carriles persistidos mediante `GET /accesos/carriles` y
+separa el carril de entrada del de salida.
+
+El archivo simulado usa el nombre `PLACA_CONFIANZA.ext`, por ejemplo
+`ABC123_0.92.jpg`. La placa y la confianza pueden controlarse por los campos
+opcionales. Los nombres inválidos, las placas inválidas, los archivos que no
+son imágenes y los archivos mayores a `LPR_IMAGE_MAX_BYTES` se rechazan.
+
+Las variables `LPR_READER_TYPE`, `LPR_IMAGE_STORAGE_PATH` y
+`LPR_IMAGE_MAX_BYTES` configuran el adaptador, el volumen local y el límite.
+La ruta guardada se registra en `evento_acceso.foto_url`.
+
 ### HU-11: pago efectivo y pase vigente
 
 El operador registra pagos idempotentes en `POST /pagos/efectivo`. El contrato,
