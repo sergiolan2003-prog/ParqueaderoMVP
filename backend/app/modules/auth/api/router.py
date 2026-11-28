@@ -16,6 +16,7 @@ from app.modules.auth.infrastructure.tokens import PyJwtTokenService
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
 PASSWORD_HASHER = Argon2PasswordHasher()
+DUMMY_PASSWORD_HASH = PASSWORD_HASHER.hash("dummy-password")
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -29,7 +30,7 @@ def login(
         hasher=PASSWORD_HASHER,
         token_service=PyJwtTokenService(clock),
         clock=clock,
-        dummy_password_hash=PASSWORD_HASHER.hash("dummy-password"),
+        dummy_password_hash=DUMMY_PASSWORD_HASH,
     )
     try:
         _, token = case.login(form.username, form.password)

@@ -24,7 +24,9 @@ export default function LoginForm({ onSubmit, error, loading }) {
       <section className="login-card" aria-labelledby="login-title">
         <p className="eyebrow">Acceso seguro</p>
         <h2 id="login-title">Iniciar sesión</h2>
-        <p className="muted">Ingresa tus credenciales de administrador.</p>
+        <p className="muted">
+          Ingresa tus credenciales de operador o administrador.
+        </p>
         <form className="stack-form" onSubmit={handleSubmit}>
           <Field label="Usuario" htmlFor="login-username">
             <input

@@ -31,6 +31,13 @@ function resolveSchema(openApi, schema) {
   return current;
 }
 
+function resolveItemSchema(openApi, schema) {
+  const resolved = resolveSchema(openApi, schema);
+  return resolved.type === "array"
+    ? resolveSchema(openApi, resolved.items)
+    : resolved;
+}
+
 function assertOperationContract(openApi, path, method, contract) {
   const operation = openApi.paths?.[path]?.[method];
   if (!operation) {
@@ -69,7 +76,7 @@ function assertOperationContract(openApi, path, method, contract) {
       );
     }
 
-    const resolvedResponse = resolveSchema(openApi, responseSchema);
+    const resolvedResponse = resolveItemSchema(openApi, responseSchema);
     const fields = Object.keys(resolvedResponse.properties ?? {});
     for (const field of responseFields) {
       if (!fields.includes(field)) {
@@ -106,6 +113,9 @@ assertOperationContract(openApi, "/auth/login", "post", {
 assertOperationContract(openApi, "/auth/me", "get", {
   responses: { 200: ["username", "rol", "activo"] },
 });
+assertOperationContract(openApi, "/carriles/", "get", {
+  responses: { 200: ["id", "sede_id", "sede_nombre", "sentido"] },
+});
 assertOperationContract(openApi, "/accesos/entrada", "post", {
   requestContentType: "application/json",
   requestFields: ["evento_id", "placa", "carril_id", "ocurrido_en"],
@@ -125,6 +135,11 @@ assertOperationContract(openApi, "/pagos/efectivo", "post", {
   responses: {
     200: ["pago_id", "cobro_id", "valor_pagado", "estado_cobro"],
     201: ["pago_id", "cobro_id", "valor_pagado", "estado_cobro"],
+  },
+});
+assertOperationContract(openApi, "/pagos/pendientes", "get", {
+  responses: {
+    200: ["cobro_id", "placa", "sede_id", "sede_nombre", "dia_operativo", "valor"],
   },
 });
 assertOperationContract(openApi, "/tarifas/", "post", {
@@ -175,6 +190,29 @@ if (user.username !== username || user.rol !== "OPERADOR" || !user.activo) {
   throw new Error("El usuario autenticado no coincide con el contrato esperado.");
 }
 
+const lanesResponse = await request("/carriles/", { headers: authorization });
+await expectStatus(lanesResponse, 200, "consulta de carriles como operador");
+const lanes = await lanesResponse.json();
+if (
+  !Array.isArray(lanes) ||
+  !lanes.some((lane) => lane.sentido === "ENTRADA") ||
+  !lanes.some((lane) => lane.sentido === "SALIDA")
+) {
+  throw new Error("La sede demo no expone carriles de entrada y salida.");
+}
+
+const pendingChargesResponse = await request("/pagos/pendientes", {
+  headers: authorization,
+});
+await expectStatus(
+  pendingChargesResponse,
+  200,
+  "consulta de cobros pendientes como operador",
+);
+if (!Array.isArray(await pendingChargesResponse.json())) {
+  throw new Error("La API no devolvió una lista de cobros pendientes.");
+}
+
 const forbiddenResponse = await request("/auth/admin-check", {
   headers: authorization,
 });
@@ -183,8 +221,8 @@ await expectStatus(forbiddenResponse, 403, "rechazo por rol en ruta administrati
 const tariffWithoutTrailingSlash = await request("/tarifas");
 await expectStatus(
   tariffWithoutTrailingSlash,
-  405,
-  "proxy de ruta tarifaria sin barra final y respuesta del backend",
+  401,
+  "protección del proxy de ruta tarifaria sin barra final",
 );
 if (tariffWithoutTrailingSlash.url !== new URL("/tarifas/", baseUrl).href) {
   throw new Error("La redirección de tarifas salió del origen del frontend.");

@@ -68,6 +68,22 @@ function installApiMock({ role = "ADMINISTRADOR", rejectTariff = false } = {}) {
     if (url.pathname === "/auth/me") {
       return jsonResponse({ username: "test-user", rol: role, activo: true });
     }
+    if (url.pathname === "/carriles/") {
+      return jsonResponse([
+        {
+          id: "lane-entry",
+          sede_id: site.id,
+          sede_nombre: site.nombre,
+          sentido: "ENTRADA",
+        },
+        {
+          id: "lane-exit",
+          sede_id: site.id,
+          sede_nombre: site.nombre,
+          sentido: "SALIDA",
+        },
+      ]);
+    }
     if (url.pathname === "/tarifas/" && method === "GET") {
       return jsonResponse(tariffs);
     }

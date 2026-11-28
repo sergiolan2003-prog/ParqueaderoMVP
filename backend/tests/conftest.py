@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from alembic.config import Config
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import Session
 
@@ -66,7 +66,12 @@ def _drop_database(admin_url: URL, database_name: str) -> None:
                 "WHERE datname = %s AND pid <> pg_backend_pid()",
                 (database_name,),
             )
-            connection.exec_driver_sql(f"DROP DATABASE {quoted_name}")
+            exists = connection.exec_driver_sql(
+                "SELECT 1 FROM pg_database WHERE datname = %s",
+                (database_name,),
+            ).scalar()
+            if exists:
+                connection.exec_driver_sql(f"DROP DATABASE {quoted_name}")
     finally:
         engine.dispose()
 
@@ -102,6 +107,7 @@ def database_url() -> Iterator[URL]:
 
     test_database_name = f"{development_url.database}_test"
     test_url = development_url.set(database=test_database_name)
+    _drop_database(development_url, test_database_name)
     _create_database(development_url, test_database_name)
     _run_migration(test_url, "head")
     yield test_url
@@ -116,6 +122,23 @@ def database_engine(database_url: URL):
 
 @pytest.fixture
 def db_session(database_engine) -> Iterator[Session]:
+    def clear_database() -> None:
+        table_names = [
+            table_name
+            for table_name in inspect(database_engine).get_table_names()
+            if table_name != "alembic_version"
+        ]
+        if table_names:
+            quoted_tables = ", ".join(
+                database_engine.dialect.identifier_preparer.quote(table_name)
+                for table_name in table_names
+            )
+            with database_engine.begin() as connection:
+                connection.exec_driver_sql(
+                    f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE"
+                )
+
+    clear_database()
     connection = database_engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection, join_transaction_mode="create_savepoint")
@@ -125,6 +148,7 @@ def db_session(database_engine) -> Iterator[Session]:
         session.close()
         transaction.rollback()
         connection.close()
+        clear_database()
 
 
 @pytest.fixture
