@@ -51,3 +51,27 @@ class CupoLlenoError(IngresoRechazadoError):
             f"No hay cupos disponibles para {tipo_vehiculo} (estado LLENO).",
         )
         self.tipo_vehiculo = tipo_vehiculo
+
+
+class NombreImagenInvalidoError(IngresoRechazadoError):
+    def __init__(self) -> None:
+        super().__init__(
+            "NOMBRE_IMAGEN_INVALIDO",
+            "El nombre debe tener el formato PLACA_CONFIANZA.ext.",
+        )
+
+
+class ArchivoImagenInvalidoError(IngresoRechazadoError):
+    def __init__(self) -> None:
+        super().__init__(
+            "ARCHIVO_NO_ES_IMAGEN",
+            "El archivo no contiene una imagen compatible.",
+        )
+
+
+class ImagenDemasiadoGrandeError(IngresoRechazadoError):
+    def __init__(self, maximo: int) -> None:
+        super().__init__(
+            "IMAGEN_DEMASIADO_GRANDE",
+            f"La imagen supera el tamaño máximo permitido de {maximo} bytes.",
+        )

@@ -3,11 +3,20 @@ from decimal import Decimal
 from random import Random
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.core.clock import Clock, get_clock
+from app.core.config import settings
 from app.core.database import get_db
 from app.modules.accesos.application.entry import RegistrarEntradaUseCase
 from app.modules.accesos.application.services import ValidarSalidaVehiculoUseCase
@@ -17,11 +26,18 @@ from app.modules.accesos.domain.exceptions import (
     ConfianzaLPRInsuficienteError,
     CupoLlenoError,
     EventoAccesoDuplicadoError,
+    ImagenDemasiadoGrandeError,
     IngresoRechazadoError,
+    NombreImagenInvalidoError,
     SedeNoEncontradaError,
 )
-from app.modules.accesos.domain.lectores import LectorSimulado
+from app.modules.accesos.domain.factory import crear_lector_placa
 from app.modules.accesos.domain.placa import PlacaInvalidaError
+from app.modules.accesos.infrastructure.imagen import (
+    eliminar_imagen,
+    guardar_imagen,
+    validar_imagen,
+)
 from app.modules.auth.api.dependencies import requiere_rol
 from app.modules.auth.domain.entities import Rol
 from app.modules.cobros.domain.motor_cobro import TarifaNoConfiguradaError
@@ -111,6 +127,8 @@ class EntradaResponse(BaseModel):
     valor: Decimal | None
     pase_vigente: bool
     lectura_manual: bool
+    confianza_lpr: float
+    foto_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -173,6 +191,11 @@ def _http_error_ingreso(error: Exception) -> HTTPException:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         )
+    if isinstance(error, ImagenDemasiadoGrandeError):
+        return HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=str(error),
+        )
     if isinstance(error, IngresoRechazadoError):
         return HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -222,6 +245,85 @@ def registrar_entrada(
 
 
 @router.post(
+    "/entrada/imagen",
+    response_model=EntradaResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(requiere_rol(Rol.OPERADOR))],
+)
+async def registrar_entrada_por_imagen(
+    imagen: UploadFile = File(...),
+    carril_id: UUID = Form(...),
+    placa_simulada: str | None = Form(default=None),
+    confianza_simulada: float | None = Form(default=None, ge=0, le=1),
+    db: Session = Depends(get_db),
+) -> EntradaResponse:
+    contenido = await imagen.read(settings.lpr_image_max_bytes + 1)
+    if len(contenido) > settings.lpr_image_max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=(
+                f"IMAGEN_DEMASIADO_GRANDE: La imagen supera el tamaño máximo "
+                f"permitido de {settings.lpr_image_max_bytes} bytes."
+            ),
+        )
+
+    try:
+        extension = validar_imagen(contenido, imagen.content_type)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"ARCHIVO_NO_ES_IMAGEN: {error}",
+        ) from error
+
+    nombre_archivo = (imagen.filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    lector = crear_lector_placa(
+        "IMAGEN",
+        nombre_archivo=nombre_archivo,
+        placa=placa_simulada,
+        confianza=confianza_simulada,
+    )
+    try:
+        lector.leer()
+    except (NombreImagenInvalidoError, PlacaInvalidaError) as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+
+    foto_url = guardar_imagen(
+        contenido,
+        extension,
+        settings.lpr_image_storage_path,
+    )
+    configuracion = obtener_configuracion_operativa(db)
+    try:
+        resultado = RegistrarEntradaUseCase(
+            db,
+            confidence_threshold=configuracion.lpr_confidence_threshold,
+            operating_periods=configuracion.operating_periods,
+        ).ejecutar_con_lector(
+            evento_id=uuid4(),
+            carril_id=carril_id,
+            lector=lector,
+            foto_url=foto_url,
+        )
+    except (
+        CarrilNoEncontradoError,
+        CarrilNoEsEntradaError,
+        ConfianzaLPRInsuficienteError,
+        EventoAccesoDuplicadoError,
+        IngresoRechazadoError,
+        PlacaInvalidaError,
+        SedeNoEncontradaError,
+        TarifaNoConfiguradaError,
+        CupoLlenoError,
+    ) as error:
+        eliminar_imagen(foto_url)
+        raise _http_error_ingreso(error) from error
+    return EntradaResponse.model_validate(resultado)
+
+
+@router.post(
     "/entrada/simulada",
     response_model=EntradaResponse,
     status_code=status.HTTP_201_CREATED,
@@ -232,7 +334,8 @@ def registrar_entrada_simulada(
     db: Session = Depends(get_db),
 ) -> EntradaResponse:
     configuracion = obtener_configuracion_operativa(db)
-    lector = LectorSimulado(
+    lector = crear_lector_placa(
+        settings.lpr_reader_type,
         aleatorio=Random(),
         placa=payload.placa,
         confianza=payload.confianza_lpr,
