@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
       "^/health$",
       "^/auth(?:/|$)",
       "^/accesos(?:/|$)",
+      "^/carriles(?:/|$)",
       "^/tarifas(?:/|$)",
       "^/sedes(?:/|$)",
       "^/consultas(?:/|$)",

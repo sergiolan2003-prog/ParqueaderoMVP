@@ -12,14 +12,17 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modules.accesos.infrastructure.models import Sede, Vehiculo
+from app.modules.accesos.infrastructure.models import Carril, Sede, Vehiculo
 from app.modules.auth.domain.entities import Rol
 from app.modules.auth.domain.entities import Usuario as UsuarioEntity
 from app.modules.auth.domain.exceptions import UsuarioDuplicadoError
 from app.modules.auth.infrastructure.models import Usuario
 from app.modules.auth.infrastructure.passwords import Argon2PasswordHasher
 from app.modules.auth.infrastructure.repositories import SqlAlchemyUsuarioRepository
-from app.modules.auth.infrastructure.seed import seed_users
+from app.modules.auth.infrastructure.seed import (
+    seed_development_data,
+    seed_users,
+)
 from app.modules.cobros.domain.entities import Cobro as CobroEntity
 from app.modules.cobros.infrastructure.models import Cobro
 from app.modules.cobros.infrastructure.repositories import SqlAlchemyCobroRepository
@@ -534,3 +537,24 @@ def test_seed_users_is_idempotent(db_session: Session) -> None:
         .all()
     )
     assert len(usernames) == 2
+
+
+def test_development_seed_creates_operational_data_idempotently(
+    db_session: Session,
+) -> None:
+    seed_development_data(db_session)
+    seed_development_data(db_session)
+
+    sede = db_session.query(Sede).filter_by(nombre="Sede Demo Parqueadero").one()
+    assert (
+        db_session.query(Carril)
+        .filter(Carril.sede_id == sede.id)
+        .count()
+        == 2
+    )
+    assert (
+        db_session.query(Tarifa)
+        .filter(Tarifa.sede_id == sede.id)
+        .count()
+        == 4
+    )

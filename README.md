@@ -242,8 +242,12 @@ Usuarios de prueba documentados desde las variables de entorno:
 | Administrador | `admin_prueba` | `AdminPrueba123!` |
 | Operador | `operador_prueba` | `OperadorPrueba123!` |
 
-El seed es idempotente y se ejecuta después de las migraciones al iniciar el
-contenedor `api`.
+El seed de usuarios es idempotente y se ejecuta después de las migraciones al
+iniciar el contenedor `api`. Cuando `APP_ENV=development`, también crea de forma
+idempotente una sede de demostración con un carril de entrada, uno de salida y
+tarifas diurnas/nocturnas para carros y motos. Esto permite probar las vistas de
+tarifas, cupos y operación desde una base vacía; no se crean estos datos en otros
+entornos. Las tarifas demo son editables desde Administración.
 
 Las rutas de salida (`POST /accesos/salida`) requieren el rol `OPERADOR` y las
 de administración (`POST /tarifas/`) requieren `ADMINISTRADOR`. La salida
@@ -276,6 +280,10 @@ Las rutas administrativas requieren un JWT con rol `ADMINISTRADOR`:
 Las fechas de eventos se interpretan en la zona horaria configurada para la
 operación; las fechas de cobros corresponden a `dia_operativo`. Un rango donde
 `desde` sea posterior a `hasta` se rechaza con HTTP 422.
+
+El panel del operador permite elegir carriles y recuperar cobros pendientes
+después de iniciar sesión de nuevo. El listado de carriles y cobros pendientes
+requiere el rol `OPERADOR`.
 
 La interfaz web en `http://localhost:5173` solicita login y muestra las pestañas
 Tarifas, Cupos y Consultas únicamente a `ADMINISTRADOR`. Un `OPERADOR` recibe

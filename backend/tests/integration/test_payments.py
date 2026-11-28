@@ -157,6 +157,39 @@ def test_cash_payment_updates_charge_creates_pass_and_authorizes_exit(
     assert exit_response.json()["barrera_abre"] is True
 
 
+def test_operator_can_recover_only_pending_charges(
+    db_session: Session,
+    cashier_client: tuple[TestClient, dict[str, str], Callable[[datetime], None]],
+) -> None:
+    client, headers, _ = cashier_client
+    _, pending_charge, _, _ = _new_charge(db_session)
+    _, paid_charge, _, _ = _new_charge(
+        db_session,
+        plate="DEF456",
+        state="PAGADO",
+    )
+
+    unauthenticated = client.get("/pagos/pendientes")
+    response = client.get("/pagos/pendientes", headers=headers)
+
+    assert unauthenticated.status_code == 401
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "cobro_id": str(pending_charge.id),
+            "placa": pending_charge.placa,
+            "sede_id": str(pending_charge.sede_id),
+            "sede_nombre": db_session.get(Sede, pending_charge.sede_id).nombre,
+            "dia_operativo": pending_charge.dia_operativo.isoformat(),
+            "valor": "12000.00",
+        }
+    ]
+    assert all(
+        charge["cobro_id"] != str(paid_charge.id)
+        for charge in response.json()
+    )
+
+
 def test_same_reference_returns_original_payment_and_pass(
     db_session: Session,
     cashier_client: tuple[TestClient, dict[str, str], Callable[[datetime], None]],
