@@ -11,6 +11,7 @@ export function EstadoBadge({ estado }) {
   const config = CONFIG_ESTADOS[estado] || CONFIG_ESTADOS.ESPERANDO;
   return (
     <span className={`estado-badge ${config.clase}`} data-testid="estado-badge">
+      <span className="status-badge-dot" aria-hidden="true" />
       {config.label}
     </span>
   );

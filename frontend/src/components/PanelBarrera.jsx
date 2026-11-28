@@ -1,3 +1,5 @@
+import { IconCheckCircle, IconXCircle } from "./Icons.jsx";
+
 export function PanelBarrera({ abierta, motivo }) {
   return (
     <section
@@ -6,7 +8,8 @@ export function PanelBarrera({ abierta, motivo }) {
     >
       <span className="eyebrow">CONTROL DE BARRERA</span>
       <h2 className="barrera-titulo">
-        {abierta ? "✓ ABIERTA" : "✕ BARRERA CERRADA"}
+        {abierta ? <IconCheckCircle size={22} /> : <IconXCircle size={22} />}
+        <span>{abierta ? "✓ ABIERTA" : "✕ BARRERA CERRADA"}</span>
       </h2>
       <p className="barrera-motivo">{motivo}</p>
     </section>

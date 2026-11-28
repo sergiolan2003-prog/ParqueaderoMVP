@@ -53,3 +53,9 @@ def test_image_reader_overrides_filename_values() -> None:
     ).leer()
 
     assert result == LecturaPlaca(placa="XYZ789", confianza=0.40)
+
+
+def test_image_reader_normalizes_plate_with_spaces_or_hyphens() -> None:
+    result = LectorImagenSimulado("abc-123_0.95.jpg").leer()
+
+    assert result == LecturaPlaca(placa="ABC123", confianza=0.95)

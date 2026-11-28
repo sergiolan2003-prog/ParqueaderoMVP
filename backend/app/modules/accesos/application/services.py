@@ -1,8 +1,10 @@
 from dataclasses import replace
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.clock import Clock, SystemClock
@@ -19,6 +21,34 @@ from app.modules.cobros.infrastructure.models import Cobro
 from app.modules.pases.infrastructure.repositories import SqlAlchemyPaseRepository
 
 
+def vehiculo_en_parqueadero(db: Session, placa: str, sede_id: UUID) -> bool:
+    """Indica si la placa tiene un ingreso activo sin salida en la sede."""
+    placa_normalizada = placa.strip().upper()
+    entradas = (
+        db.query(func.count(EventoAcceso.id))
+        .join(Carril, EventoAcceso.carril_id == Carril.id)
+        .filter(
+            EventoAcceso.placa == placa_normalizada,
+            Carril.sede_id == sede_id,
+            Carril.sentido == "ENTRADA",
+        )
+        .scalar()
+        or 0
+    )
+    salidas = (
+        db.query(func.count(EventoAcceso.id))
+        .join(Carril, EventoAcceso.carril_id == Carril.id)
+        .filter(
+            EventoAcceso.placa == placa_normalizada,
+            Carril.sede_id == sede_id,
+            Carril.sentido == "SALIDA",
+        )
+        .scalar()
+        or 0
+    )
+    return int(entradas) > int(salidas)
+
+
 class ValidarSalidaVehiculoUseCase:
     def __init__(self, db: Session, clock: Clock | None = None):
         self.db = db
@@ -29,7 +59,8 @@ class ValidarSalidaVehiculoUseCase:
         placa: str,
         carril_id: UUID,
         foto_url: str | None = None,
-    ) -> dict[str, UUID | bool | str | datetime]:
+        confianza_lpr: float = 1.0,
+    ) -> dict[str, UUID | Decimal | bool | str | datetime | None]:
         placa = placa.strip().upper()
 
         carril = self.db.query(Carril).filter(Carril.id == carril_id).first()
@@ -122,7 +153,7 @@ class ValidarSalidaVehiculoUseCase:
                 placa=placa,
                 carril_id=carril_id,
                 ocurrido_en=instante,
-                confianza_lpr=1.0,
+                confianza_lpr=confianza_lpr,
                 lectura_manual=False,
                 foto_url=foto_url,
             )
@@ -136,4 +167,6 @@ class ValidarSalidaVehiculoUseCase:
             "barrera_abre": barrera_abre,
             "motivo": motivo,
             "registrado_en": registrado_en,
+            "cobro_id": cobro.id if cobro is not None else None,
+            "valor": cobro.valor if cobro is not None else Decimal("0.00"),
         }

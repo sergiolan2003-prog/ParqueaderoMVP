@@ -75,24 +75,23 @@ class LectorImagenSimulado:
 
     def leer(self) -> LecturaPlaca:
         coincidencia = re.fullmatch(
-            r"([A-Za-z0-9]+)_([0-9]+(?:\.[0-9]+)?)\.([A-Za-z0-9]+)",
+            r"([A-Za-z0-9 -]+)_([0-9]+(?:\.[0-9]+)?)\.([A-Za-z0-9]+)",
             self._nombre_archivo,
         )
         if coincidencia is None:
             raise NombreImagenInvalidoError()
 
-        placa_nombre = coincidencia.group(1).upper()
-        confianza_nombre = float(coincidencia.group(2))
-        placa = (
-            self._placa_simulada.strip().upper()
+        placa_bruta = (
+            self._placa_simulada
             if self._placa_simulada is not None
-            else placa_nombre
+            else coincidencia.group(1)
         )
         confianza = (
             self._confianza_simulada
             if self._confianza_simulada is not None
-            else confianza_nombre
+            else float(coincidencia.group(2))
         )
+        placa = ClasificadorPlaca.normalizar(placa_bruta)
         ClasificadorPlaca.clasificar(placa)
         if not 0 <= confianza <= 1:
             raise NombreImagenInvalidoError()

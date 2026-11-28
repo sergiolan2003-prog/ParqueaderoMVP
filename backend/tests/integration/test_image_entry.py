@@ -182,3 +182,66 @@ def test_image_entry_rejects_oversized_image(
     )
 
     assert response.status_code == 413
+
+
+def test_image_entry_detects_exit_when_unpaid_car_image_uploaded_again(
+    image_entry_client,
+) -> None:
+    client, carril_id, headers = image_entry_client
+    first = client.post(
+        "/accesos/entrada/imagen",
+        headers=headers,
+        data={"carril_id": carril_id},
+        files={"imagen": ("ABC123_0.92.jpg", _jpeg(), "image/jpeg")},
+    )
+    assert first.status_code == 201, first.text
+    assert first.json()["tipo_movimiento"] == "ENTRADA"
+    assert first.json()["cobro_creado"] is True
+
+    second = client.post(
+        "/accesos/entrada/imagen",
+        headers=headers,
+        data={"carril_id": carril_id},
+        files={"imagen": ("ABC123_0.92.jpg", _jpeg(), "image/jpeg")},
+    )
+    assert second.status_code == 200, second.text
+    body = second.json()
+    assert body["placa"] == "ABC123"
+    assert body["tipo_movimiento"] == "SALIDA"
+    assert body["barrera_abre"] is False
+    assert body["cobro_id"] == first.json()["cobro_id"]
+    assert "deuda pendiente" in body["motivo"]
+
+
+def test_image_entry_detects_exit_and_allows_reentry_when_no_debt(
+    image_entry_client,
+) -> None:
+    client, carril_id, headers = image_entry_client
+    first = client.post(
+        "/accesos/entrada/imagen",
+        headers=headers,
+        data={"carril_id": carril_id},
+        files={"imagen": ("ABC12D_0.92.jpg", _jpeg(), "image/jpeg")},
+    )
+    assert first.status_code == 201, first.text
+    assert first.json()["tipo_movimiento"] == "ENTRADA"
+
+    second = client.post(
+        "/accesos/entrada/imagen",
+        headers=headers,
+        data={"carril_id": carril_id},
+        files={"imagen": ("ABC12D_0.92.jpg", _jpeg(), "image/jpeg")},
+    )
+    assert second.status_code == 200, second.text
+    assert second.json()["tipo_movimiento"] == "SALIDA"
+    assert second.json()["barrera_abre"] is True
+    assert second.json()["foto_url"].endswith(".jpg")
+
+    third = client.post(
+        "/accesos/entrada/imagen",
+        headers=headers,
+        data={"carril_id": carril_id},
+        files={"imagen": ("ABC12D_0.92.jpg", _jpeg(), "image/jpeg")},
+    )
+    assert third.status_code == 201, third.text
+    assert third.json()["tipo_movimiento"] == "ENTRADA"
