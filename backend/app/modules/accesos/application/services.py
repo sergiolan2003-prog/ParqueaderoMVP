@@ -115,22 +115,25 @@ class ValidarSalidaVehiculoUseCase:
             else:
                 motivo = "Salida autorizada mediante un pase vigente."
 
-        nuevo_evento = EventoAcceso(
-            id=uuid4(),
-            placa=placa,
-            carril_id=carril_id,
-            ocurrido_en=instante,
-            confianza_lpr=1.0,
-            lectura_manual=False,
-            foto_url=foto_url,
-        )
-        self.db.add(nuevo_evento)
-        self.db.commit()
+        registrado_en = instante
+        if barrera_abre:
+            nuevo_evento = EventoAcceso(
+                id=uuid4(),
+                placa=placa,
+                carril_id=carril_id,
+                ocurrido_en=instante,
+                confianza_lpr=1.0,
+                lectura_manual=False,
+                foto_url=foto_url,
+            )
+            self.db.add(nuevo_evento)
+            self.db.commit()
+            registrado_en = nuevo_evento.ocurrido_en
 
         return {
             "placa": placa,
             "carril_id": carril_id,
             "barrera_abre": barrera_abre,
             "motivo": motivo,
-            "registrado_en": nuevo_evento.ocurrido_en,
+            "registrado_en": registrado_en,
         }

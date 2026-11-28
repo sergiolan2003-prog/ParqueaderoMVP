@@ -43,3 +43,11 @@ class EventoAccesoDuplicadoError(IngresoRechazadoError):
             "EVENTO_DUPLICADO",
             "El evento de acceso ya fue registrado.",
         )
+
+class CupoLlenoError(IngresoRechazadoError):
+    def __init__(self, tipo_vehiculo: str) -> None:
+        super().__init__(
+            "LLENO",
+            f"No hay cupos disponibles para {tipo_vehiculo} (estado LLENO).",
+        )
+        self.tipo_vehiculo = tipo_vehiculo

@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from typing import Protocol
 
-from app.modules.accesos.domain.exceptions import ConfianzaLPRInsuficienteError
+from app.modules.accesos.domain.exceptions import (
+    ConfianzaLPRInsuficienteError,
+    CupoLlenoError,
+)
 
 
 @dataclass(frozen=True)
@@ -10,6 +13,9 @@ class ContextoValidacionIngreso:
     umbral_confianza: float
     lectura_manual: bool
     pase_vigente: bool
+    tipo_vehiculo: str = ""
+    ocupacion_actual: int = 0
+    cupo_maximo: int = 1
 
 
 class ValidadorIngreso(Protocol):
@@ -36,10 +42,13 @@ class ValidadorConfianza:
 
 
 class ValidadorCupo:
-    """No rechaza ingresos hasta que HU-13 implemente la validación de cupos."""
+    """Valida si hay cupo disponible para el tipo de vehículo; si no, marca LLENO."""
 
     def validar(self, contexto: ContextoValidacionIngreso) -> None:
-        return None
+        sin_cupo_configurado = contexto.cupo_maximo <= 0
+        cupo_alcanzado = contexto.ocupacion_actual >= contexto.cupo_maximo
+        if sin_cupo_configurado or cupo_alcanzado:
+            raise CupoLlenoError(contexto.tipo_vehiculo or "VEHICULO")
 
 
 class ValidadorPaseVigente:

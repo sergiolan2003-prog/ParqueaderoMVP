@@ -15,12 +15,18 @@ def _contexto(
     umbral_confianza: float = 0.8,
     lectura_manual: bool = False,
     pase_vigente: bool = False,
+    tipo_vehiculo: str = "CARRO", 
+    ocupacion_actual: int = 0, 
+    cupo_maximo: int = 1
 ) -> ContextoValidacionIngreso:
     return ContextoValidacionIngreso(
         confianza_lpr=confianza_lpr,
         umbral_confianza=umbral_confianza,
         lectura_manual=lectura_manual,
         pase_vigente=pase_vigente,
+        tipo_vehiculo=tipo_vehiculo,
+        ocupacion_actual=ocupacion_actual,
+        cupo_maximo=cupo_maximo,
     )
 
 
@@ -100,3 +106,16 @@ def test_confidence_validator_rejects_low_confidence_unless_manual() -> None:
         validador.validar(_contexto(confianza_lpr=0.79))
 
     validador.validar(_contexto(confianza_lpr=0.0, lectura_manual=True))
+
+def test_cupo_validator_rejects_when_full() -> None:
+    from app.modules.accesos.domain.exceptions import CupoLlenoError
+
+    validador = ValidadorCupo()
+    with pytest.raises(CupoLlenoError):
+        validador.validar(
+            _contexto(
+                tipo_vehiculo="CARRO",
+                ocupacion_actual=2,
+                cupo_maximo=2,
+            )
+        )
