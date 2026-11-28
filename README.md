@@ -315,6 +315,8 @@ para extenderla.
 `imagen` y `carril_id`. También acepta `placa_simulada` y
 `confianza_simulada`; ambos tienen prioridad sobre los datos inferidos del
 nombre del archivo.
+El panel obtiene los carriles persistidos mediante `GET /accesos/carriles` y
+separa el carril de entrada del de salida.
 
 El archivo simulado usa el nombre `PLACA_CONFIANZA.ext`, por ejemplo
 `ABC123_0.92.jpg`. La placa y la confianza pueden controlarse por los campos

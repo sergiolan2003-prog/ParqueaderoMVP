@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { registerEntryByImage } from "../api/accessService.js";
+import { listCarriles } from "../api/carrilService.js";
 import { EstadoBadge } from "./EstadoBadge.jsx";
 import { PanelBarrera } from "./PanelBarrera.jsx";
 
@@ -18,7 +19,11 @@ function formatearCOP(valor) {
 
 export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
   const [token, setToken] = useState(accessToken);
-  const [carrilId, setCarrilId] = useState("");
+  const [carriles, setCarriles] = useState([]);
+  const [carrilEntradaId, setCarrilEntradaId] = useState("");
+  const [carrilSalidaId, setCarrilSalidaId] = useState("");
+  const [errorCarriles, setErrorCarriles] = useState("");
+  const [cargandoCarriles, setCargandoCarriles] = useState(Boolean(accessToken));
   const [placaInput, setPlacaInput] = useState("");
   const [confianzaInput, setConfianzaInput] = useState("0.98");
   const [referenciaPago, setReferenciaPago] = useState("");
@@ -41,6 +46,91 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
       motivoBarrera: "Esperando lectura de vehículo en el carril.",
     },
   );
+  const carrilesEntrada = carriles.filter(
+    (carril) =>
+      carril.sentido === "ENTRADA" &&
+      carriles.some(
+        (posibleSalida) =>
+          posibleSalida.sentido === "SALIDA" &&
+          posibleSalida.sede_id === carril.sede_id,
+      ),
+  );
+  const carrilEntradaSeleccionado = carriles.find(
+    (carril) => carril.id === carrilEntradaId,
+  );
+  const carrilesSalida = carriles.filter(
+    (carril) =>
+      carril.sentido === "SALIDA" &&
+      carril.sede_id === carrilEntradaSeleccionado?.sede_id,
+  );
+
+  useEffect(() => {
+    const tokenCarriles = accessToken || token.trim();
+    if (!tokenCarriles) {
+      setCargandoCarriles(false);
+      setCarriles([]);
+      setCarrilEntradaId("");
+      setCarrilSalidaId("");
+      setErrorCarriles("");
+      return undefined;
+    }
+
+    let active = true;
+    setCargandoCarriles(true);
+    setCarriles([]);
+    setCarrilEntradaId("");
+    setCarrilSalidaId("");
+    setErrorCarriles("");
+    const timeoutId = setTimeout(() => {
+      listCarriles(tokenCarriles)
+        .then((resultado) => {
+          if (!active) return;
+          if (!Array.isArray(resultado)) {
+            throw new Error("La API devolvió un listado de carriles inválido.");
+          }
+          setCarriles(resultado);
+          const entradaConSalida = resultado.find(
+            (carril) =>
+              carril.sentido === "ENTRADA" &&
+              resultado.some(
+                (posibleSalida) =>
+                  posibleSalida.sentido === "SALIDA" &&
+                  posibleSalida.sede_id === carril.sede_id,
+              ),
+          );
+          if (!entradaConSalida) {
+            setErrorCarriles(
+              "La base de datos no tiene configurado un par de carriles de entrada y salida para la misma sede.",
+            );
+            return;
+          }
+          setCarrilEntradaId(entradaConSalida.id);
+          setCarrilSalidaId(
+            resultado.find(
+              (carril) =>
+                carril.sentido === "SALIDA" &&
+                carril.sede_id === entradaConSalida.sede_id,
+            ).id,
+          );
+        })
+        .catch((error) => {
+          if (active) {
+            setErrorCarriles(
+              error.message ||
+                "No fue posible consultar los carriles de la base de datos.",
+            );
+          }
+        })
+        .finally(() => {
+          if (active) setCargandoCarriles(false);
+        });
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [accessToken, token]);
 
   async function llamarApi(url, body) {
     setCargando(true);
@@ -74,9 +164,13 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
 
   async function manejarEntradaSimulada(e) {
     e.preventDefault();
+    if (!carrilEntradaId) {
+      setErrorApi("No hay un carril de entrada disponible en la base de datos.");
+      return;
+    }
     const confianza = Number(confianzaInput);
     const data = await llamarApi("/accesos/entrada/simulada", {
-      carril_id: carrilId,
+      carril_id: carrilEntradaId,
       placa: placaInput.trim().toUpperCase() || null,
       confianza_lpr: Number.isNaN(confianza) ? null : confianza,
     });
@@ -113,25 +207,19 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
     });
   }
 
-  async function manejarCargaImagen() {
-    if (!carrilId.trim()) {
-      setErrorApi("Selecciona un carril de entrada antes de operar.");
+  async function manejarCargaImagen(imagen = imagenEntrada) {
+    if (!carrilEntradaId) {
+      setErrorApi("No hay un carril de entrada disponible en la base de datos.");
       return;
     }
-    if (!imagenEntrada) {
+    if (!imagen) {
       setErrorApi("Selecciona una imagen de placa.");
       return;
     }
 
     const formData = new FormData();
-    formData.append("imagen", imagenEntrada);
-    formData.append("carril_id", carrilId.trim());
-    if (placaInput.trim()) {
-      formData.append("placa_simulada", placaInput.trim().toUpperCase());
-    }
-    if (confianzaInput.trim()) {
-      formData.append("confianza_simulada", confianzaInput.trim());
-    }
+    formData.append("imagen", imagen);
+    formData.append("carril_id", carrilEntradaId);
 
     setCargando(true);
     setErrorApi("");
@@ -157,20 +245,18 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
         err.status === 422 &&
         String(err.detail).includes("CONFIANZA_LPR_INSUFICIENTE")
       ) {
-        const coincidencia = imagenEntrada.name.match(
+        const coincidencia = imagen.name.match(
           /^([A-Za-z0-9]+)_([0-9]+(?:\.[0-9]+)?)\.[A-Za-z0-9]+$/,
         );
+        setPlacaInput(coincidencia?.[1]?.toUpperCase() ?? "");
         setMostrarManual(true);
         setOperacion((prev) => ({
           ...prev,
           estado: "BAJA_CONFIANZA",
           placa:
-            placaInput.trim().toUpperCase() ||
             coincidencia?.[1]?.toUpperCase() ||
             prev.placa,
-          confianza: confianzaInput.trim()
-            ? Number(confianzaInput)
-            : Number(coincidencia?.[2] ?? prev.confianza),
+          confianza: Number(coincidencia?.[2] ?? prev.confianza),
           barreraAbierta: false,
           motivoBarrera:
             "Lectura con baja confianza. Se requiere validación manual del operador.",
@@ -181,13 +267,25 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
     }
   }
 
+  function manejarSeleccionImagen(event) {
+    const imagen = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!imagen) return;
+    setImagenEntrada(imagen);
+    void manejarCargaImagen(imagen);
+  }
+
   async function manejarLecturaManual(e) {
     e.preventDefault();
+    if (!carrilEntradaId) {
+      setErrorApi("No hay un carril de entrada disponible en la base de datos.");
+      return;
+    }
     const placaLimpia = placaInput.trim().toUpperCase();
     const data = await llamarApi("/accesos/entrada", {
       evento_id: crypto.randomUUID(),
       placa: placaLimpia,
-      carril_id: carrilId,
+      carril_id: carrilEntradaId,
       ocurrido_en: new Date().toISOString(),
       confianza_lpr: 1.0,
       lectura_manual: true,
@@ -209,10 +307,14 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
 
   async function manejarSalida(e) {
     e.preventDefault();
+    if (!carrilSalidaId) {
+      setErrorApi("No hay un carril de salida disponible en la base de datos.");
+      return;
+    }
     const placaLimpia = placaInput.trim().toUpperCase() || operacion.placa;
     const data = await llamarApi("/accesos/salida", {
       placa: placaLimpia,
-      carril_id: carrilId,
+      carril_id: carrilSalidaId,
     });
     if (!data) return;
 
@@ -224,6 +326,16 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
       barreraAbierta: data.barrera_abre,
       motivoBarrera: data.motivo,
     }));
+  }
+
+  function seleccionarCarrilEntrada(id) {
+    setCarrilEntradaId(id);
+    const entrada = carriles.find((carril) => carril.id === id);
+    const salida = carriles.find(
+      (carril) =>
+        carril.sentido === "SALIDA" && carril.sede_id === entrada?.sede_id,
+    );
+    setCarrilSalidaId(salida?.id ?? "");
   }
 
   async function manejarPagoEfectivo(e) {
@@ -323,16 +435,68 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
                 />
               </label>
             )}
-            <label>
-              ID del carril (UUID)
-              <input
-                type="text"
-                value={carrilId}
-                onChange={(e) => setCarrilId(e.target.value)}
-                placeholder="00000000-0000-0000-0000-000000000000"
-                required
-              />
-            </label>
+            {(errorCarriles || (!cargandoCarriles && carriles.length === 0)) && (
+              <div className="alerta-error" role="alert">
+                {errorCarriles || "No se encontraron carriles en la base de datos."}
+              </div>
+            )}
+            <div className="form-row">
+              <label>
+                Carril de entrada
+                <select
+                  aria-label="Carril de entrada"
+                  value={carrilEntradaId}
+                  onChange={(event) =>
+                    seleccionarCarrilEntrada(event.target.value)
+                  }
+                  disabled={cargandoCarriles || !carrilesEntrada.length}
+                  required
+                >
+                  <option value="">Selecciona carril de entrada</option>
+                  {carrilesEntrada.map((carril) => (
+                    <option key={carril.id} value={carril.id}>
+                      {carril.sede_nombre} · {carril.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Carril de salida
+                <select
+                  aria-label="Carril de salida"
+                  value={carrilSalidaId}
+                  onChange={(event) => setCarrilSalidaId(event.target.value)}
+                  disabled={cargandoCarriles || !carrilSalidaId}
+                  required
+                >
+                  <option value="">Selecciona carril de salida</option>
+                  {carrilesSalida.map((carril) => (
+                    <option key={carril.id} value={carril.id}>
+                      {carril.sede_nombre} · {carril.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="image-upload-row">
+              <label className="image-upload-button">
+                <span>{cargando ? "Procesando imagen..." : "Cargar imagen de placa"}</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  aria-label="Cargar imagen de placa"
+                  onChange={manejarSeleccionImagen}
+                  disabled={cargando || cargandoCarriles || !carrilEntradaId}
+                  hidden
+                />
+              </label>
+              <span className="image-upload-hint">
+                {imagenEntrada?.name
+                  ? `Imagen seleccionada: ${imagenEntrada.name}`
+                  : "La lectura se procesa automáticamente al seleccionar una imagen."}
+              </span>
+            </div>
+            <span className="eyebrow">SIMULACIÓN DE PRUEBA</span>
             <div className="form-row">
               <label>
                 Placa
@@ -356,27 +520,12 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
               </label>
             </div>
             <div className="btn-group">
-              <label className="btn-secondary">
-                Cargar imagen
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={(event) =>
-                    setImagenEntrada(event.target.files?.[0] ?? null)
-                  }
-                  hidden
-                />
-              </label>
               <button
-                type="button"
-                className="btn-secondary"
-                disabled={cargando || !imagenEntrada}
-                onClick={manejarCargaImagen}
+                type="submit"
+                className="btn-primary"
+                disabled={cargando || !carrilEntradaId}
               >
-                Registrar por imagen
-              </button>
-              <button type="submit" className="btn-primary" disabled={cargando}>
-                Registrar ingreso
+                Registrar ingreso simulado
               </button>
               <button
                 type="button"

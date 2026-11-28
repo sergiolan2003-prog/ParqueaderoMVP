@@ -29,6 +29,8 @@ def image_entry_client(db_session) -> Iterator[tuple[TestClient, str, dict[str, 
     db_session.flush()
     carril = Carril(sede_id=sede.id, sentido="ENTRADA")
     db_session.add(carril)
+    carril_salida = Carril(sede_id=sede.id, sentido="SALIDA")
+    db_session.add(carril_salida)
     tarifa = Tarifa(
         sede_id=sede.id,
         tipo_vehiculo="CARRO",
@@ -72,6 +74,19 @@ def image_entry_client(db_session) -> Iterator[tuple[TestClient, str, dict[str, 
 
 def _jpeg() -> BytesIO:
     return BytesIO(b"\xff\xd8\xffHU27-imagen-simulada")
+
+
+def test_operator_lists_database_lanes_by_direction(
+    image_entry_client,
+) -> None:
+    client, _, headers = image_entry_client
+    response = client.get("/accesos/carriles", headers=headers)
+
+    assert response.status_code == 200
+    assert {carril["sentido"] for carril in response.json()} >= {
+        "ENTRADA",
+        "SALIDA",
+    }
 
 
 def test_image_entry_registers_plate_with_photo_url(

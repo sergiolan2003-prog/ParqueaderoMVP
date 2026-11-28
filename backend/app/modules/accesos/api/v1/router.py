@@ -13,6 +13,7 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.clock import Clock, get_clock
@@ -38,6 +39,7 @@ from app.modules.accesos.infrastructure.imagen import (
     guardar_imagen,
     validar_imagen,
 )
+from app.modules.accesos.infrastructure.models import Carril, Sede
 from app.modules.auth.api.dependencies import requiere_rol
 from app.modules.auth.domain.entities import Rol
 from app.modules.cobros.domain.motor_cobro import TarifaNoConfiguradaError
@@ -155,6 +157,14 @@ class SalidaResponse(BaseModel):
     motivo: str
     registrado_en: datetime
 
+
+class CarrilResponse(BaseModel):
+    id: UUID
+    sede_id: UUID
+    sede_nombre: str
+    sentido: str
+
+
 def _http_error_ingreso(error: Exception) -> HTTPException:
     if isinstance(error, CupoLlenoError):
         return HTTPException(
@@ -193,7 +203,7 @@ def _http_error_ingreso(error: Exception) -> HTTPException:
         )
     if isinstance(error, ImagenDemasiadoGrandeError):
         return HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=str(error),
         )
     if isinstance(error, IngresoRechazadoError):
@@ -202,6 +212,30 @@ def _http_error_ingreso(error: Exception) -> HTTPException:
             detail=str(error),
         )
     raise error
+
+
+@router.get(
+    "/carriles",
+    response_model=list[CarrilResponse],
+    dependencies=[Depends(requiere_rol(Rol.OPERADOR))],
+)
+def listar_carriles(
+    db: Session = Depends(get_db),
+) -> list[CarrilResponse]:
+    filas = db.execute(
+        select(Carril, Sede.nombre)
+        .join(Sede, Carril.sede_id == Sede.id)
+        .order_by(Carril.sentido, Sede.nombre, Carril.id)
+    ).all()
+    return [
+        CarrilResponse(
+            id=carril.id,
+            sede_id=carril.sede_id,
+            sede_nombre=sede_nombre,
+            sentido=carril.sentido,
+        )
+        for carril, sede_nombre in filas
+    ]
 
 
 @router.post(
@@ -260,7 +294,7 @@ async def registrar_entrada_por_imagen(
     contenido = await imagen.read(settings.lpr_image_max_bytes + 1)
     if len(contenido) > settings.lpr_image_max_bytes:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=(
                 f"IMAGEN_DEMASIADO_GRANDE: La imagen supera el tamaño máximo "
                 f"permitido de {settings.lpr_image_max_bytes} bytes."
