@@ -72,6 +72,15 @@ it("muestra el formulario de lectura manual ante baja confianza", () => {
   expect(screen.getByRole("button", { name: /Confirmar placa manual/i })).toBeInTheDocument();
 });
 
+it("muestra las acciones para cargar una imagen de placa", () => {
+  render(<PanelOperador />);
+
+  expect(screen.getByText(/Cargar imagen/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /Registrar por imagen/i }),
+  ).toBeDisabled();
+});
+
 it("muestra error de la API sin dejar la pantalla en blanco", async () => {
   vi.stubGlobal(
     "fetch",

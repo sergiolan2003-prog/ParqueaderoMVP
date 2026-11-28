@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { registerEntryByImage } from "../api/accessService.js";
 import { EstadoBadge } from "./EstadoBadge.jsx";
 import { PanelBarrera } from "./PanelBarrera.jsx";
 
@@ -21,6 +22,7 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
   const [placaInput, setPlacaInput] = useState("");
   const [confianzaInput, setConfianzaInput] = useState("0.98");
   const [referenciaPago, setReferenciaPago] = useState("");
+  const [imagenEntrada, setImagenEntrada] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [errorApi, setErrorApi] = useState("");
   const [mostrarManual, setMostrarManual] = useState(
@@ -109,6 +111,74 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
         ? `Ingreso autorizado para ${data.placa} con pase vigente.`
         : `Ingreso registrado (${data.franja}).`,
     });
+  }
+
+  async function manejarCargaImagen() {
+    if (!carrilId.trim()) {
+      setErrorApi("Selecciona un carril de entrada antes de operar.");
+      return;
+    }
+    if (!imagenEntrada) {
+      setErrorApi("Selecciona una imagen de placa.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("imagen", imagenEntrada);
+    formData.append("carril_id", carrilId.trim());
+    if (placaInput.trim()) {
+      formData.append("placa_simulada", placaInput.trim().toUpperCase());
+    }
+    if (confianzaInput.trim()) {
+      formData.append("confianza_simulada", confianzaInput.trim());
+    }
+
+    setCargando(true);
+    setErrorApi("");
+    try {
+      const data = await registerEntryByImage(formData);
+      setMostrarManual(false);
+      setOperacion({
+        estado:
+          data.cobro_creado && Number(data.valor || 0) > 0
+            ? "COBRO_PENDIENTE"
+            : "BARRERA_ABIERTA",
+        placa: data.placa,
+        confianza: Number(data.confianza_lpr),
+        tipoVehiculo: clasificarTipoVehiculo(data.placa),
+        valorPagar: Number(data.valor || 0),
+        cobroId: data.cobro_id,
+        barreraAbierta: true,
+        motivoBarrera: `Ingreso registrado por imagen (${data.franja}).`,
+      });
+    } catch (err) {
+      setErrorApi(err.message || "No fue posible cargar la imagen.");
+      if (
+        err.status === 422 &&
+        String(err.detail).includes("CONFIANZA_LPR_INSUFICIENTE")
+      ) {
+        const coincidencia = imagenEntrada.name.match(
+          /^([A-Za-z0-9]+)_([0-9]+(?:\.[0-9]+)?)\.[A-Za-z0-9]+$/,
+        );
+        setMostrarManual(true);
+        setOperacion((prev) => ({
+          ...prev,
+          estado: "BAJA_CONFIANZA",
+          placa:
+            placaInput.trim().toUpperCase() ||
+            coincidencia?.[1]?.toUpperCase() ||
+            prev.placa,
+          confianza: confianzaInput.trim()
+            ? Number(confianzaInput)
+            : Number(coincidencia?.[2] ?? prev.confianza),
+          barreraAbierta: false,
+          motivoBarrera:
+            "Lectura con baja confianza. Se requiere validación manual del operador.",
+        }));
+      }
+    } finally {
+      setCargando(false);
+    }
   }
 
   async function manejarLecturaManual(e) {
@@ -286,6 +356,25 @@ export function PanelOperador({ estadoInicial = null, accessToken = "" }) {
               </label>
             </div>
             <div className="btn-group">
+              <label className="btn-secondary">
+                Cargar imagen
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={(event) =>
+                    setImagenEntrada(event.target.files?.[0] ?? null)
+                  }
+                  hidden
+                />
+              </label>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={cargando || !imagenEntrada}
+                onClick={manejarCargaImagen}
+              >
+                Registrar por imagen
+              </button>
               <button type="submit" className="btn-primary" disabled={cargando}>
                 Registrar ingreso
               </button>
